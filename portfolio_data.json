@@ -1,0 +1,265 @@
+{
+  "originalDeposit": 2345609,
+  "accounts": {
+    "400753915": {
+      "name": "סבתא גמל",
+      "assets": [
+        {
+          "category": "מדד עולמי",
+          "name": "אינבסקו חוץMSCI.WORLD",
+          "ticker": "1185164",
+          "quantity": 9,
+          "cost": 4043,
+          "dividend": 0
+        },
+        {
+          "category": "S&P 500",
+          "name": "אינ.חוץS&P500",
+          "ticker": "1183441",
+          "quantity": 5100,
+          "cost": 220250,
+          "dividend": 0
+        },
+        {
+          "category": "אגח דירוג נמוך ארהב",
+          "name": "X USD HY Crp Bd UCITS ETF 1D",
+          "ticker": "XUHY",
+          "exchange": "LON",
+          "quantity": 6940,
+          "cost": 327341,
+          "dividend": 0
+        },
+        {
+          "category": "אגח דירוג נמוך ארהב",
+          "name": "ISHARES $ HIGH YIELD CORP BOND UCITS ETF",
+          "ticker": "1159078",
+          "quantity": 242,
+          "cost": 6037,
+          "dividend": 0
+        },
+        {
+          "category": "אגח חברות דירוג גבוה ארהב",
+          "name": "Vanguard USD Corporate Bond UCITS ETF Accumulating",
+          "ticker": "VCPA",
+          "exchange": "LON",
+          "quantity": 725,
+          "cost": 152278,
+          "dividend": 0
+        },
+        {
+          "category": "אגח",
+          "name": "מניף אג\"ח א",
+          "ticker": "1185883",
+          "quantity": 4132,
+          "cost": 4203,
+          "dividend": 0
+        }
+      ]
+    },
+    "414516043": {
+      "name": "סבא קה\"ש",
+      "assets": [
+        {
+          "category": "מדד עולמי",
+          "name": "אינבסקו חוץMSCI.WORLD",
+          "ticker": "1185164",
+          "quantity": 248,
+          "cost": 111523,
+          "dividend": 0
+        },
+        {
+          "category": "אגח חברות דירוג גבוה עולמי",
+          "name": "iShares Global Corp Bond UCITS ETF",
+          "ticker": "CRPA",
+          "exchange": "LON",
+          "quantity": 5520,
+          "cost": 114799,
+          "dividend": 0
+        },
+        {
+          "category": "אג\"ח שקלי ישראל",
+          "name": "אי.בי.אי. מחקה תל בונד שקלי",
+          "ticker": "5113071",
+          "quantity": 1,
+          "cost": 0,
+          "dividend": 0
+        },
+        {
+          "category": "אגח",
+          "name": "מניף אג\"ח א",
+          "ticker": "1185883",
+          "quantity": 12500,
+          "cost": 12835,
+          "dividend": 0
+        }
+      ]
+    },
+    "635774371": {
+      "name": "סבא גמל",
+      "assets": [
+        {
+          "category": "מדד עולמי",
+          "name": "אינבסקו חוץMSCI.WORLD",
+          "ticker": "1185164",
+          "quantity": 597,
+          "cost": 257071,
+          "dividend": 0
+        },
+        {
+          "category": "S&P 500",
+          "name": "אינ.חוץS&P500",
+          "ticker": "1183441",
+          "quantity": 6400,
+          "cost": 272277,
+          "dividend": 0
+        }
+      ]
+    },
+    "705892337": {
+      "name": "סבתא קה\"ש",
+      "assets": [
+        {
+          "category": "מדד עולמי",
+          "name": "אינבסקו חוץMSCI.WORLD",
+          "ticker": "1185164",
+          "quantity": 537,
+          "cost": 232438,
+          "dividend": 0
+        },
+        {
+          "category": "תא 125",
+          "name": "תכלית TTF ת\"א 125",
+          "ticker": "5114657",
+          "quantity": 46054,
+          "cost": 81659,
+          "dividend": 0
+        },
+        {
+          "category": "אגח ממשלת ארהב 3-7 שנים",
+          "name": "איישרס.חוץ T BOND 3-7 YRS",
+          "ticker": "1159276",
+          "quantity": 7,
+          "cost": 3398,
+          "dividend": 0
+        },
+        {
+          "category": "אגח ממשלת ארהב 1-3 שנים",
+          "name": "איישרס.חוץ T BOND 1-3YEAR",
+          "ticker": "1159177",
+          "quantity": 324,
+          "cost": 6560,
+          "dividend": 0
+        },
+        {
+          "category": "אג\"ח שקלי ישראל",
+          "name": "אי.בי.אי. מחקה תל בונד שקלי",
+          "ticker": "5113071",
+          "quantity": 1711,
+          "cost": 2906,
+          "dividend": 0
+        },
+        {
+          "category": "אגח דירוג נמוך ארהב",
+          "name": "ISHARES $ HIGH YIELD CORP BOND UCITS ETF",
+          "ticker": "1159078",
+          "quantity": 506,
+          "cost": 12462,
+          "dividend": 0
+        },
+        {
+          "category": "אגח חברות דירוג גבוה ארהב",
+          "name": "ISHARES $ CORP BOND UCITS ETF USD",
+          "ticker": "1159185",
+          "quantity": 690,
+          "cost": 14562,
+          "dividend": 0
+        }
+      ]
+    },
+    "1420240376": {
+      "name": "סבתא גמל 190",
+      "assets": [
+        {
+          "category": "מדד עולמי",
+          "name": "אינבסקו חוץMSCI.WORLD",
+          "ticker": "1185164",
+          "quantity": 8,
+          "cost": 3064,
+          "dividend": 0
+        },
+        {
+          "category": "S&P 500",
+          "name": "אינ.חוץS&P500",
+          "ticker": "1183441",
+          "quantity": 1100,
+          "cost": 44914,
+          "dividend": 0
+        },
+        {
+          "category": "אגח חברות דירוג גבוה עולמי",
+          "name": "איישרס.חוץGLOBALAGGREGATE",
+          "ticker": "1159102",
+          "quantity": 3724,
+          "cost": 74664,
+          "dividend": 0
+        },
+        {
+          "category": "אגח ממשלת ארהב 3-7 שנים",
+          "name": "איישרס.חוץ T BOND 3-7 YRS",
+          "ticker": "1159276",
+          "quantity": 82,
+          "cost": 40975,
+          "dividend": 0
+        },
+        {
+          "category": "אגח ממשלת ארהב 1-3 שנים",
+          "name": "איישרס.חוץ T BOND 1-3YEAR",
+          "ticker": "1159177",
+          "quantity": 3928,
+          "cost": 82161,
+          "dividend": 0
+        },
+        {
+          "category": "אג\"ח שקלי ישראל קצר",
+          "name": "תכלית TTF י תל בונד-שקלי 1-3",
+          "ticker": "5130166",
+          "quantity": 1894,
+          "cost": 83004,
+          "dividend": 0
+        },
+        {
+          "category": "אג\"ח שקלי ישראל",
+          "name": "MTF מחקה תל בונד שקלי",
+          "ticker": "5127709",
+          "quantity": 89506,
+          "cost": 101222,
+          "dividend": 0
+        },
+        {
+          "category": "אג\"ח צמוד ישראל",
+          "name": "תכלית TTF י תל בונד מאגר",
+          "ticker": "5136916",
+          "quantity": 50560,
+          "cost": 55539,
+          "dividend": 0
+        },
+        {
+          "category": "אגח דירוג נמוך ארהב",
+          "name": "ISHARES $ HIGH YIELD CORP BOND UCITS ETF",
+          "ticker": "1159078",
+          "quantity": 1235,
+          "cost": 30027,
+          "dividend": 0
+        },
+        {
+          "category": "אגח חברות דירוג גבוה ארהב",
+          "name": "ISHARES $ CORP BOND UCITS ETF USD",
+          "ticker": "1159185",
+          "quantity": 1525,
+          "cost": 32165,
+          "dividend": 0
+        }
+      ]
+    }
+  }
+}

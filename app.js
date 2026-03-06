@@ -1,14 +1,6 @@
-const BASE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1OaBBapoMTT2u4lnoca2CVsLAub9lV-eQb56MI6iffLY/export?format=csv&gid=';
 const ORIGINAL_DEPOSIT_KEY = 'portfolioDashboard_originalDeposit';
 // Determine server URL: if on localhost use absolute path for local dev, otherwise use relative path for production
 const SERVER_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:3001' : '';
-
-// Multiple CORS proxies in priority order — if one fails, the next is tried
-const CORS_PROXIES = [
-    (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-    (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-];
 
 let currentGid = '0';
 let accountCache = {}; // { gid: data[] }
@@ -33,26 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Try fetching through each proxy in order; return text on first success
-async function fetchWithFallback(sheetUrl) {
-    let lastError;
-    for (const proxyFn of CORS_PROXIES) {
-        try {
-            const proxyUrl = proxyFn(sheetUrl);
-            const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const text = await response.text();
-            // Sanity-check: a valid CSV will contain a comma or be non-empty
-            if (text && text.length > 10) return text;
-            throw new Error('Empty or invalid response');
-        } catch (err) {
-            lastError = err;
-            console.warn(`Proxy failed, trying next...`, err.message);
-        }
-    }
-    throw lastError;
-}
-
 async function initApp() {
     toggleLoader(true);
 
@@ -63,115 +35,18 @@ async function initApp() {
     }
 
     try {
-        const csvText = await fetchWithFallback(BASE_SHEET_URL + currentGid);
+        const response = await fetch(`${SERVER_URL}/api/portfolio/${currentGid}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
 
-        Papa.parse(csvText, {
-            complete: function (results) {
-                const processed = processData(results.data);
-                accountCache[currentGid] = processed;
-                renderWithData(processed);
-                toggleLoader(false);
-            }
-        });
+        accountCache[currentGid] = data;
+        renderWithData(data);
+        toggleLoader(false);
     } catch (error) {
-        console.error('All proxies failed:', error);
-        alert('שגיאה בטעינת הנתונים מ-Google Sheets. אנא נסה לרענן שוב.');
+        console.error('Failed to fetch from server:', error);
+        alert('שגיאה בטעינת הנתונים מהשרת. כנראה השרת לא רץ.');
         toggleLoader(false);
     }
-}
-
-function processData(rows) {
-    const data = [];
-    if (!rows || rows.length === 0) return data;
-
-    // Find header row and indices
-    let colIndices = {
-        category: 0,
-        name: 1,
-        ticker: 2,
-        quantity: 7,
-        cost: -1,
-        value: -1,
-        profit: -1,
-        profitPercent: -1,
-        dividend: -1
-    };
-
-    // Look for a row that contains our headers
-    let headerRowIndex = -1;
-    for (let i = 0; i < Math.min(rows.length, 10); i++) {
-        const row = rows[i];
-        if (row.includes('Ticker') || row.includes('טיקר')) {
-            headerRowIndex = i;
-            // Map indices based on labels
-            row.forEach((cell, idx) => {
-                const text = cell.trim();
-                if (text === 'Ticker' || text === 'טיקר') colIndices.ticker = idx;
-                if (text === 'עלות' || text === 'מחיר ממוצע') colIndices.cost = idx;
-                if (text === 'סכום' || text === 'שווי') colIndices.value = idx;
-                if (text === 'רווח') colIndices.profit = idx;
-                if (text === 'רווח %') colIndices.profitPercent = idx;
-                if (text === 'דיבידנד') colIndices.dividend = idx;
-            });
-            break;
-        }
-    }
-
-    // Fallback if header detection fails (use defaults or 'הכל' structure)
-    if (headerRowIndex === -1) {
-        headerRowIndex = 0;
-        colIndices.cost = 6;
-        colIndices.value = 8;
-        colIndices.profit = 9;
-        colIndices.profitPercent = 10;
-        colIndices.dividend = 12;
-    }
-
-    // Parse data rows starting AFTER the header row
-    for (let i = headerRowIndex + 1; i < rows.length; i++) {
-        const row = rows[i];
-
-        // A row is valid if it has content in ticker and cost/value columns
-        const ticker = row[colIndices.ticker];
-        const costStr = row[colIndices.cost];
-
-        if (ticker && costStr && (costStr.includes('₪') || costStr.includes('$') || !isNaN(parseMoney(costStr)))) {
-            // Filter out summary/subtotal rows (usually don't have a ticker or name)
-            if (ticker.trim() === '' || ticker.includes('סה"כ')) continue;
-
-            const cost = parseMoney(row[colIndices.cost]);
-            const value = parseMoney(row[colIndices.value]);
-            const profit = parseMoney(row[colIndices.profit]);
-            const profitPercent = parseMoney(row[colIndices.profitPercent]);
-
-            // Skip empty/invalid rows that might have passed the first check
-            if (isNaN(cost) && isNaN(value)) continue;
-
-            const dividend = colIndices.dividend >= 0 ? parseMoney(row[colIndices.dividend]) : 0;
-
-            data.push({
-                category: row[colIndices.category] || 'אחר',
-                name: row[colIndices.name] || ticker,
-                ticker: ticker,
-                quantity: row[colIndices.quantity],
-                cost: cost,
-                value: value,
-                profit: profit,
-                profitPercent: profitPercent,
-                dividend: dividend
-            });
-        }
-    }
-    // The user specified that the original deposit (סכום מקורי) is at cell Q5.
-    // In a 0-indexed CSV parser where row 1 is index 0 and column A is index 0:
-    // Q is the 17th letter of the alphabet, so column Q is index 16.
-    // Row 5 is index 4.
-    let originalDeposit = 0;
-    if (rows.length > 4 && rows[4].length > 16) {
-        originalDeposit = parseMoney(rows[4][16]);
-    }
-
-    return { assets: data, originalDeposit };
 }
 
 async function renderWithData(result) {
@@ -444,6 +319,8 @@ function renderTable(data) {
     if (profitHeader) profitHeader.style.display = showProfits ? '' : 'none';
     if (returnHeader) returnHeader.style.display = showProfits ? '' : 'none';
 
+    const isAllView = currentGid === '0';
+
     data.forEach(asset => {
         const tr = document.createElement('tr');
         const profitClass = asset.profit >= 0 ? 'positive' : 'negative';
@@ -461,17 +338,89 @@ function renderTable(data) {
                </td>`
             : '';
 
+        const priceDisplay = asset.currentPrice > 0 ? '₪' + asset.currentPrice.toFixed(2) : 'לא זמין';
+
         tr.innerHTML = `
             <td><strong>${asset.category}</strong></td>
             <td>${asset.name}</td>
             <td><small>${asset.ticker}</small></td>
-            <td>${formatILS(asset.cost)}</td>
+            <td class="${!isAllView ? 'editable-cell' : ''}" data-field="quantity" data-ticker="${asset.ticker}">${asset.quantity}</td>
+            <td>${priceDisplay}</td>
+            <td class="${!isAllView ? 'editable-cell' : ''}" data-field="cost" data-ticker="${asset.ticker}">${formatILS(asset.cost)}</td>
             <td>${formatILS(asset.value)}</td>
             ${profitCells}
             ${divCell}
         `;
+
+        // Add click-to-edit for editable cells
+        if (!isAllView) {
+            tr.querySelectorAll('.editable-cell').forEach(cell => {
+                cell.addEventListener('click', () => startCellEdit(cell, asset));
+            });
+        }
+
         tbody.appendChild(tr);
     });
+}
+
+function startCellEdit(cell, asset) {
+    if (cell.querySelector('input')) return; // already editing
+
+    const field = cell.dataset.field;
+    const rawValue = field === 'quantity' ? asset.quantity : asset.cost;
+
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.className = 'cell-edit-input';
+    input.value = rawValue;
+    input.step = field === 'quantity' ? '1' : '1';
+
+    cell.textContent = '';
+    cell.appendChild(input);
+    input.focus();
+    input.select();
+
+    const save = () => saveCellEdit(cell, asset, field, input.value);
+    input.addEventListener('blur', save);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { input.removeEventListener('blur', save); save(); }
+        if (e.key === 'Escape') {
+            input.removeEventListener('blur', save);
+            cell.textContent = field === 'quantity' ? rawValue : formatILS(rawValue);
+        }
+    });
+}
+
+async function saveCellEdit(cell, asset, field, newValue) {
+    const numValue = Number(newValue);
+    if (isNaN(numValue) || numValue < 0) {
+        cell.textContent = field === 'quantity' ? asset[field] : formatILS(asset[field]);
+        return;
+    }
+
+    cell.textContent = '...';
+
+    try {
+        const body = {};
+        body[field] = numValue;
+
+        const resp = await fetch(`${SERVER_URL}/api/portfolio/${currentGid}/${asset.ticker}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        if (!resp.ok) throw new Error('Save failed');
+
+        // Clear cache and refresh
+        delete accountCache[currentGid];
+        delete accountCache['0']; // Also clear "All" cache since it sums
+        await initApp();
+    } catch (err) {
+        console.error('Failed to save:', err);
+        cell.textContent = field === 'quantity' ? asset[field] : formatILS(asset[field]);
+        alert('שגיאה בשמירת הנתונים');
+    }
 }
 
 function filterTable(term) {
