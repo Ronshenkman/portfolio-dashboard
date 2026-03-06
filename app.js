@@ -84,8 +84,8 @@ function updateKPIs(data, originalDeposit) {
         totalDividend += asset.dividend || 0;
     });
 
-    // Profit on open positions (cost already adjusted for dividends in sheet)
-    const totalProfit = totalValue - totalCost;
+    // Profit on open positions (now includes dividends)
+    const totalProfit = totalValue - totalCost + totalDividend;
     const totalPercent = totalCost > 0 ? (totalProfit / totalCost) * 100 : 0;
 
     document.getElementById('kpi-total-value').innerText = formatILS(totalValue);
@@ -99,16 +99,6 @@ function updateKPIs(data, originalDeposit) {
     percentEl.innerText = totalPercent.toFixed(2) + '%';
     percentEl.className = totalPercent >= 0 ? 'positive-text' : 'negative-text';
 
-    // Dividend KPI
-    const divCard = document.getElementById('kpi-dividend-card');
-    if (divCard) {
-        if (totalDividend > 0) {
-            divCard.classList.remove('hidden');
-            document.getElementById('kpi-total-dividend').innerText = formatILS(totalDividend);
-        } else {
-            divCard.classList.add('hidden');
-        }
-    }
 
     // Original deposit + true profit section
     const origSection = document.getElementById('kpi-original-section');
@@ -275,7 +265,21 @@ function renderCharts(data) {
 
     const ctxPerf = document.getElementById('performanceChart').getContext('2d');
     const perfLabels = data.map(a => a.name);
-    const perfValues = data.map(a => a.profitPercent);
+
+    // Calculate portfolio totals for contribution
+    let totalPProfit = 0;
+    let totalPCost = 0;
+    data.forEach(a => {
+        totalPProfit += a.profit;
+        totalPCost += a.cost;
+    });
+    const totalPYield = totalPCost > 0 ? (totalPProfit / totalPCost) * 100 : 0;
+
+    const perfValues = data.map(a => {
+        if (totalPProfit === 0) return 0;
+        return totalPYield * (a.profit / totalPProfit);
+    });
+
     const perfColors = perfValues.map(val => val >= 0 ? 'rgba(16, 185, 129, 0.8)' : 'rgba(239, 68, 68, 0.8)');
 
     charts.performance = new Chart(ctxPerf, {
@@ -283,7 +287,7 @@ function renderCharts(data) {
         data: {
             labels: perfLabels,
             datasets: [{
-                label: 'תשואה (%)',
+                label: 'תרומה לתשואה (%)',
                 data: perfValues,
                 backgroundColor: perfColors,
                 borderRadius: 6
@@ -297,7 +301,12 @@ function renderCharts(data) {
                 y: { grid: { color: 'rgba(255,255,255,0.05)' } }
             },
             plugins: {
-                legend: { display: false }
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (context) => ` ${context.label}: ${context.raw.toFixed(2)}%`
+                    }
+                }
             }
         }
     });
@@ -307,33 +316,61 @@ function renderTable(data) {
     const tbody = document.getElementById('table-body');
     tbody.innerHTML = '';
 
-    // Dividend column is always visible
+    const isAllView = currentGid === '0';
+
+    // Dividend column is visible only in specific account views
+    const divHeader = document.getElementById('th-dividend');
+    if (divHeader) divHeader.style.display = isAllView ? 'none' : '';
 
     // Show profit/return columns only in the "All" view (gid = '0')
-    const showProfits = currentGid === '0';
+    const showProfits = isAllView;
     const profitHeader = document.getElementById('th-profit');
     const returnHeader = document.getElementById('th-return');
+    const contribHeader = document.getElementById('th-contribution');
     if (profitHeader) profitHeader.style.display = showProfits ? '' : 'none';
     if (returnHeader) returnHeader.style.display = showProfits ? '' : 'none';
+    if (contribHeader) contribHeader.style.display = showProfits ? '' : 'none';
 
-    const isAllView = currentGid === '0';
+    // Calculate portfolio totals for contribution calculation
+    let totalPortfolioProfit = 0;
+    let totalPortfolioCost = 0;
+    if (showProfits) {
+        data.forEach(asset => {
+            totalPortfolioProfit += asset.profit;
+            totalPortfolioCost += asset.cost;
+        });
+    }
+    const totalPortfolioYield = totalPortfolioCost > 0 ? (totalPortfolioProfit / totalPortfolioCost) * 100 : 0;
 
     data.forEach(asset => {
         const tr = document.createElement('tr');
         const profitClass = asset.profit >= 0 ? 'positive' : 'negative';
         const profitSign = asset.profit >= 0 ? '+' : '';
         const divValue = asset.dividend || 0;
-        const divCell = isAllView
-            ? `<td class="positive-text">${divValue > 0 ? formatILS(divValue) : '—'}</td>`
-            : `<td class="editable-cell positive-text" data-field="dividend" data-ticker="${asset.ticker}">${divValue > 0 ? formatILS(divValue) : '—'}</td>`;
 
-        const profitCells = showProfits
-            ? `<td class="${asset.profit >= 0 ? 'positive-text' : 'negative-text'}">${formatILS(asset.profit)}</td>
-               <td>
-                   <span class="profit-pill ${profitClass}">
-                       ${profitSign}${asset.profitPercent.toFixed(2)}%
-                   </span>
-               </td>`
+        let contributionCells = '';
+        if (showProfits) {
+            const contribution = (totalPortfolioProfit !== 0)
+                ? totalPortfolioYield * (asset.profit / totalPortfolioProfit)
+                : 0;
+            const contribClass = contribution >= 0 ? 'positive-text' : 'negative-text';
+            const contribSign = contribution >= 0 ? '+' : '';
+
+            contributionCells = `
+                <td class="${asset.profit >= 0 ? 'positive-text' : 'negative-text'}">${formatILS(asset.profit)}</td>
+                <td>
+                    <span class="profit-pill ${profitClass}">
+                        ${profitSign}${asset.profitPercent.toFixed(2)}%
+                    </span>
+                </td>
+                <td class="${contribClass}">
+                    ${contribSign}${contribution.toFixed(2)}%
+                </td>
+            `;
+        }
+
+        const divCell = !isAllView
+            ? `<td class="editable-cell positive-text" data-field="dividend" data-ticker="${asset.ticker}">${divValue > 0 ? formatILS(divValue) : '—'}</td>`
             : '';
 
         const priceDisplay = asset.currentPrice > 0 ? '₪' + asset.currentPrice.toFixed(2) : 'לא זמין';
@@ -346,7 +383,7 @@ function renderTable(data) {
             <td>${priceDisplay}</td>
             <td class="${!isAllView ? 'editable-cell' : ''}" data-field="cost" data-ticker="${asset.ticker}">${formatILS(asset.cost)}</td>
             <td>${formatILS(asset.value)}</td>
-            ${profitCells}
+            ${contributionCells}
             ${divCell}
         `;
 

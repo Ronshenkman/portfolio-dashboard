@@ -290,7 +290,7 @@ app.get('/api/portfolio/:gid', async (req, res) => {
             const priceAgorot = priceCache[asset.ticker]?.price || 0;
             const priceILS = Math.round(priceAgorot / 100 * 100) / 100; // round to 2 decimals
             const liveValue = priceAgorot * asset.quantity / 100;
-            const profit = liveValue - asset.cost;
+            const profit = liveValue - asset.cost + (asset.dividend || 0);
             const profitPercent = asset.cost > 0 ? (profit / asset.cost) * 100 : 0;
 
             return {
