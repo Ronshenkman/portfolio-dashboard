@@ -339,9 +339,9 @@ function renderTable(data) {
         const priceDisplay = asset.currentPrice > 0 ? '₪' + asset.currentPrice.toFixed(2) : 'לא זמין';
 
         tr.innerHTML = `
-            <td><strong>${asset.category}</strong></td>
-            <td>${asset.name}</td>
-            <td><small>${asset.ticker}</small></td>
+            <td class="${isAllView ? 'meta-editable-cell' : ''}" data-meta-field="category" data-ticker="${asset.ticker}"><strong>${asset.category}</strong></td>
+            <td class="${isAllView ? 'meta-editable-cell' : ''}" data-meta-field="name" data-ticker="${asset.ticker}">${asset.name}</td>
+            <td class="${isAllView ? 'meta-editable-cell' : ''}" data-meta-field="ticker" data-ticker="${asset.ticker}"><small>${asset.ticker}</small></td>
             <td class="${!isAllView ? 'editable-cell' : ''}" data-field="quantity" data-ticker="${asset.ticker}">${asset.quantity}</td>
             <td>${priceDisplay}</td>
             <td class="${!isAllView ? 'editable-cell' : ''}" data-field="cost" data-ticker="${asset.ticker}">${formatILS(asset.cost)}</td>
@@ -350,15 +350,79 @@ function renderTable(data) {
             ${divCell}
         `;
 
-        // Add click-to-edit for editable cells
+        // Add click-to-edit for editable cells (quantity/cost/dividend in account views)
         if (!isAllView) {
             tr.querySelectorAll('.editable-cell').forEach(cell => {
                 cell.addEventListener('click', () => startCellEdit(cell, asset));
             });
         }
 
+        // Add click-to-edit for metadata cells (category/name/ticker in All view)
+        if (isAllView) {
+            tr.querySelectorAll('.meta-editable-cell').forEach(cell => {
+                cell.addEventListener('click', () => startMetaEdit(cell, asset));
+            });
+        }
+
         tbody.appendChild(tr);
     });
+}
+
+function startMetaEdit(cell, asset) {
+    if (cell.querySelector('input')) return;
+
+    const field = cell.dataset.metaField;
+    const rawValue = asset[field];
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'cell-edit-input';
+    input.value = rawValue;
+
+    cell.textContent = '';
+    cell.appendChild(input);
+    input.focus();
+    input.select();
+
+    const save = () => saveMetaEdit(cell, asset, field, input.value);
+    input.addEventListener('blur', save);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { input.removeEventListener('blur', save); save(); }
+        if (e.key === 'Escape') {
+            input.removeEventListener('blur', save);
+            cell.innerHTML = field === 'category' ? `<strong>${rawValue}</strong>` : (field === 'ticker' ? `<small>${rawValue}</small>` : rawValue);
+        }
+    });
+}
+
+async function saveMetaEdit(cell, asset, field, newValue) {
+    if (!newValue.trim()) {
+        cell.innerHTML = field === 'category' ? `<strong>${asset[field]}</strong>` : (field === 'ticker' ? `<small>${asset[field]}</small>` : asset[field]);
+        return;
+    }
+
+    cell.textContent = '...';
+
+    try {
+        const body = {};
+        body[field] = newValue.trim();
+
+        const resp = await fetch(`${SERVER_URL}/api/asset/${encodeURIComponent(asset.ticker)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        if (!resp.ok) throw new Error('Save failed');
+
+        // Clear all caches and refresh
+        for (const key in accountCache) delete accountCache[key];
+        await initApp();
+    } catch (err) {
+        console.error('Failed to save metadata:', err);
+        cell.innerHTML = field === 'category' ? `<strong>${asset[field]}</strong>` : (field === 'ticker' ? `<small>${asset[field]}</small>` : asset[field]);
+        alert('שגיאה בשמירת הנתונים');
+    }
 }
 
 function startCellEdit(cell, asset) {

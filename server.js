@@ -214,6 +214,30 @@ app.put('/api/portfolio/:gid/:ticker', (req, res) => {
     }
 });
 
+// Update asset metadata (category, name, ticker) globally across all accounts
+app.put('/api/asset/:oldTicker', (req, res) => {
+    try {
+        const { oldTicker } = req.params;
+        const { category, name, ticker: newTicker } = req.body;
+        const db = readData();
+
+        for (const key in db.accounts) {
+            for (const asset of (db.accounts[key].assets || [])) {
+                if (asset.ticker === oldTicker) {
+                    if (category !== undefined) asset.category = category;
+                    if (name !== undefined) asset.name = name;
+                    if (newTicker !== undefined) asset.ticker = newTicker;
+                }
+            }
+        }
+
+        writeData(db);
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Fetch full portfolio data for a specific account (or 0 for all)
 app.get('/api/portfolio/:gid', async (req, res) => {
     try {
