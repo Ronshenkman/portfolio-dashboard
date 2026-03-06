@@ -173,7 +173,7 @@ app.post('/deposit', (req, res) => {
 app.put('/api/portfolio/:gid/:ticker', (req, res) => {
     try {
         const { gid, ticker } = req.params;
-        const { quantity, cost } = req.body;
+        const { quantity, cost, dividend } = req.body;
         const db = readData();
 
         if (!db.accounts[gid]) {
@@ -187,6 +187,7 @@ app.put('/api/portfolio/:gid/:ticker', (req, res) => {
             // Update existing asset
             if (quantity !== undefined) account.assets[assetIndex].quantity = Number(quantity);
             if (cost !== undefined) account.assets[assetIndex].cost = Number(cost);
+            if (dividend !== undefined) account.assets[assetIndex].dividend = Number(dividend);
         } else {
             // Asset doesn't exist in this account yet — find it from another account for metadata
             let template = null;

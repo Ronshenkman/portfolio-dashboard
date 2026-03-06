@@ -307,10 +307,7 @@ function renderTable(data) {
     const tbody = document.getElementById('table-body');
     tbody.innerHTML = '';
 
-    // Show dividend column header only if some assets have dividends
-    const hasDividends = data.some(a => a.dividend && a.dividend > 0);
-    const divHeader = document.getElementById('th-dividend');
-    if (divHeader) divHeader.style.display = hasDividends ? '' : 'none';
+    // Dividend column is always visible
 
     // Show profit/return columns only in the "All" view (gid = '0')
     const showProfits = currentGid === '0';
@@ -325,9 +322,10 @@ function renderTable(data) {
         const tr = document.createElement('tr');
         const profitClass = asset.profit >= 0 ? 'positive' : 'negative';
         const profitSign = asset.profit >= 0 ? '+' : '';
-        const divCell = hasDividends
-            ? `<td class="positive-text">${asset.dividend > 0 ? formatILS(asset.dividend) : '—'}</td>`
-            : '';
+        const divValue = asset.dividend || 0;
+        const divCell = isAllView
+            ? `<td class="positive-text">${divValue > 0 ? formatILS(divValue) : '—'}</td>`
+            : `<td class="editable-cell positive-text" data-field="dividend" data-ticker="${asset.ticker}">${divValue > 0 ? formatILS(divValue) : '—'}</td>`;
 
         const profitCells = showProfits
             ? `<td class="${asset.profit >= 0 ? 'positive-text' : 'negative-text'}">${formatILS(asset.profit)}</td>
@@ -367,7 +365,7 @@ function startCellEdit(cell, asset) {
     if (cell.querySelector('input')) return; // already editing
 
     const field = cell.dataset.field;
-    const rawValue = field === 'quantity' ? asset.quantity : asset.cost;
+    const rawValue = field === 'quantity' ? asset.quantity : (field === 'cost' ? asset.cost : (asset.dividend || 0));
 
     const input = document.createElement('input');
     input.type = 'number';

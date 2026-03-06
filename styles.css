@@ -507,6 +507,22 @@ tbody tr:hover {
     }
 }
 
+/* Compact table text */
+#holdings-table {
+    font-size: 0.8rem;
+}
+
+#holdings-table th,
+#holdings-table td {
+    padding: 0.5rem 0.6rem;
+}
+
+#holdings-table th {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
 /* Editable cells */
 .editable-cell {
     cursor: pointer;
