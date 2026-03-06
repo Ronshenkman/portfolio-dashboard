@@ -7,6 +7,24 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ─── Authentication Middleware ────────────────────────────────────────────────
+const APP_PASSWORD = process.env.APP_PASSWORD || '010699';
+app.use((req, res, next) => {
+    // Allow CORS preflight and allow anyone to bypass for specific public endpoints if we had any
+    if (req.method === 'OPTIONS') return next();
+
+    const b64auth = (req.headers.authorization || '').split(' ')[1] || '';
+    const [login, password] = Buffer.from(b64auth, 'base64').toString().split(':');
+
+    // We allow either username or password to be the required password (just in case they put it in the wrong field)
+    if (password === APP_PASSWORD || login === APP_PASSWORD) {
+        return next();
+    }
+
+    res.set('WWW-Authenticate', 'Basic realm="Portfolio Dashboard"');
+    res.status(401).send('Authentication required.');
+});
+
 // ─── Config ───────────────────────────────────────────────────────────────────
 const SPREADSHEET_ID = '1OaBBapoMTT2u4lnoca2CVsLAub9lV-eQb56MI6iffLY';
 const SERVICE_ACCOUNT_FILE = path.join(__dirname, 'credentials.json.json');
