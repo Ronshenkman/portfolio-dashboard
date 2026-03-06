@@ -242,7 +242,9 @@ function updateKPIs(data, originalDeposit) {
     const trueProfitPct = document.getElementById('kpi-true-profit-pct');
 
     if (origSection) {
-        if (originalDeposit > 0) {
+        if (currentGid !== '0') {
+            origSection.classList.add('hidden');
+        } else if (originalDeposit > 0) {
             origSection.classList.remove('hidden');
             // Render the editable deposit field
             origEl.innerHTML = `
@@ -337,6 +339,16 @@ function cancelEditDeposit(originalValue) {
 }
 
 function renderCharts(data) {
+    const chartsSection = document.querySelector('.charts-grid');
+    if (chartsSection) {
+        if (currentGid !== '0') {
+            chartsSection.classList.add('hidden');
+            return;
+        } else {
+            chartsSection.classList.remove('hidden');
+        }
+    }
+
     if (charts.allocation) charts.allocation.destroy();
     if (charts.performance) charts.performance.destroy();
 
@@ -425,6 +437,13 @@ function renderTable(data) {
     const divHeader = document.getElementById('th-dividend');
     if (divHeader) divHeader.style.display = hasDividends ? '' : 'none';
 
+    // Show profit/return columns only in the "All" view (gid = '0')
+    const showProfits = currentGid === '0';
+    const profitHeader = document.getElementById('th-profit');
+    const returnHeader = document.getElementById('th-return');
+    if (profitHeader) profitHeader.style.display = showProfits ? '' : 'none';
+    if (returnHeader) returnHeader.style.display = showProfits ? '' : 'none';
+
     data.forEach(asset => {
         const tr = document.createElement('tr');
         const profitClass = asset.profit >= 0 ? 'positive' : 'negative';
@@ -433,18 +452,22 @@ function renderTable(data) {
             ? `<td class="positive-text">${asset.dividend > 0 ? formatILS(asset.dividend) : '—'}</td>`
             : '';
 
+        const profitCells = showProfits
+            ? `<td class="${asset.profit >= 0 ? 'positive-text' : 'negative-text'}">${formatILS(asset.profit)}</td>
+               <td>
+                   <span class="profit-pill ${profitClass}">
+                       ${profitSign}${asset.profitPercent.toFixed(2)}%
+                   </span>
+               </td>`
+            : '';
+
         tr.innerHTML = `
             <td><strong>${asset.category}</strong></td>
             <td>${asset.name}</td>
             <td><small>${asset.ticker}</small></td>
             <td>${formatILS(asset.cost)}</td>
             <td>${formatILS(asset.value)}</td>
-            <td class="${asset.profit >= 0 ? 'positive-text' : 'negative-text'}">${formatILS(asset.profit)}</td>
-            <td>
-                <span class="profit-pill ${profitClass}">
-                    ${profitSign}${asset.profitPercent.toFixed(2)}%
-                </span>
-            </td>
+            ${profitCells}
             ${divCell}
         `;
         tbody.appendChild(tr);
