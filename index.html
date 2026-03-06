@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- PapaParse -->
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+    <div class="background-mesh">
+        <div class="glow-orb orb-1"></div>
+        <div class="glow-orb orb-2"></div>
+        <div class="glow-orb orb-3"></div>
+    </div>
+
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="glass-panel d-header">
+            <div class="header-content">
+                <h1><i class="fa-solid fa-chart-line header-icon"></i> מעקב תיק השקעות</h1>
+                <div class="account-selection-wrapper">
+                    <select id="account-selector" class="glass-select">
+                        <option value="0">הכל (סה"כ)</option>
+                        <option value="705892337">סבתא קה"ש</option>
+                        <option value="400753915">סבתא גמל</option>
+                        <option value="1420240376">סבתא גמל 190</option>
+                        <option value="414516043">סבא קה"ש</option>
+                        <option value="635774371">סבא גמל</option>
+                    </select>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button id="refresh-btn" class="btn-primary">
+                    <i class="fa-solid fa-rotate-right"></i> רענן נתונים
+                </button>
+            </div>
+        </header>
+
+        <!-- Loader -->
+        <div id="loader" class="loader-container">
+            <div class="spinner"></div>
+            <p>מושך נתונים...</p>
+        </div>
+
+        <main id="main-content" class="hidden">
+            <!-- KPIs -->
+            <div class="kpi-grid">
+                <div class="kpi-card glass-panel">
+                    <div class="kpi-icon"><i class="fa-solid fa-wallet"></i></div>
+                    <div class="kpi-info">
+                        <span class="kpi-label">שווי כולל</span>
+                        <h2 id="kpi-total-value">₪0</h2>
+                    </div>
+                </div>
+                <div class="kpi-card glass-panel">
+                    <div class="kpi-icon"><i class="fa-solid fa-money-bill-trend-up"></i></div>
+                    <div class="kpi-info">
+                        <span class="kpi-label">עלות כוללת</span>
+                        <h2 id="kpi-total-cost">₪0</h2>
+                    </div>
+                </div>
+                <div class="kpi-card glass-panel">
+                    <div class="kpi-icon"><i class="fa-solid fa-arrow-trend-up"></i></div>
+                    <div class="kpi-info">
+                        <span class="kpi-label">רווח נקי</span>
+                        <h2 id="kpi-total-profit">₪0</h2>
+                    </div>
+                </div>
+                <div class="kpi-card glass-panel">
+                    <div class="kpi-icon"><i class="fa-solid fa-percent"></i></div>
+                    <div class="kpi-info">
+                        <span class="kpi-label">תשואה כוללת</span>
+                        <h2 id="kpi-total-percent">0%</h2>
+                    </div>
+                </div>
+                <div id="kpi-dividend-card" class="kpi-card glass-panel hidden">
+                    <div class="kpi-icon" style="background:rgba(16,185,129,0.15);color:#10b981"><i
+                            class="fa-solid fa-coins"></i></div>
+                    <div class="kpi-info">
+                        <span class="kpi-label">דיבידנד שהתקבל</span>
+                        <h2 id="kpi-total-dividend" class="positive-text">₪0</h2>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Original Deposit + True Total Profit (visible only when הכל sheet has the data) -->
+            <div id="kpi-original-section" class="kpi-grid kpi-grid-secondary hidden">
+                <div class="kpi-card glass-panel kpi-highlight">
+                    <div class="kpi-icon" style="background:rgba(99,102,241,0.15);color:#6366f1"><i
+                            class="fa-solid fa-piggy-bank"></i></div>
+                    <div class="kpi-info">
+                        <span class="kpi-label">סכום מקורי שהופקד</span>
+                        <h2 id="kpi-original-deposit">₪0</h2>
+                    </div>
+                </div>
+                <div class="kpi-card glass-panel kpi-highlight">
+                    <div class="kpi-icon" style="background:rgba(16,185,129,0.15);color:#10b981"><i
+                            class="fa-solid fa-arrow-trend-up"></i></div>
+                    <div class="kpi-info">
+                        <span class="kpi-label">רווח ביחס למקורי</span>
+                        <h2 id="kpi-true-profit">₪0</h2>
+                    </div>
+                </div>
+                <div class="kpi-card glass-panel kpi-highlight">
+                    <div class="kpi-icon" style="background:rgba(245,158,11,0.15);color:#f59e0b"><i
+                            class="fa-solid fa-chart-line"></i></div>
+                    <div class="kpi-info">
+                        <span class="kpi-label">תשואה ביחס למקורי</span>
+                        <h2 id="kpi-true-profit-pct">0%</h2>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="charts-grid">
+                <div class="chart-container glass-panel">
+                    <h3>חשיפה למוצרים <i class="fa-solid fa-pie-chart chart-title-icon"></i></h3>
+                    <div class="canvas-wrapper">
+                        <canvas id="allocationChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-container glass-panel">
+                    <h3>ביצועים פר נכס <i class="fa-solid fa-chart-column chart-title-icon"></i></h3>
+                    <div class="canvas-wrapper">
+                        <canvas id="performanceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table Section -->
+            <div class="table-container glass-panel">
+                <div class="table-header">
+                    <h3>פירוט אחזקות <i class="fa-solid fa-list table-title-icon"></i></h3>
+                    <div class="search-box">
+                        <i class="fa-solid fa-search"></i>
+                        <input type="text" id="search-input" placeholder="חיפוש נכס...">
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table id="holdings-table">
+                        <thead>
+                            <tr>
+                                <th>נכס</th>
+                                <th>נייר</th>
+                                <th>מספר</th>
+                                <th>עלות</th>
+                                <th>שווי שוק</th>
+                                <th>רווח/הפסד</th>
+                                <th>תשואה</th>
+                                <th id="th-dividend" style="display:none">דיבידנד</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body">
+                            <!-- Rows dynamically populated -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

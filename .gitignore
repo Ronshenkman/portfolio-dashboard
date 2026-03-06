@@ -1,0 +1,11 @@
+# התעלמות ממפתחות גוגל הסודיים
+credentials.json
+project-*.json
+
+# התעלמות מתיקיית ההתקנות הכבדה
+node_modules/
+.env
+
+# קבצי מערכת מיותרים
+.DS_Store
+Thumbs.db
