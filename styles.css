@@ -554,3 +554,38 @@ tbody tr:hover {
 .cell-edit-input:focus {
     box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.4);
 }
+
+/* Sorting Styles */
+th.sortable {
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+th.sortable:hover {
+    background-color: rgba(99, 102, 241, 0.2);
+    color: #fff;
+}
+
+th.sortable::after {
+    content: ' \21C5';
+    /* Up/Down Arrow */
+    font-size: 0.8rem;
+    opacity: 0.5;
+    margin-right: 4px;
+}
+
+/* Delete Button Styles */
+.delete-btn {
+    background: transparent;
+    color: rgba(239, 68, 68, 0.7);
+    border: none;
+    padding: 0.5rem;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.delete-btn:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}

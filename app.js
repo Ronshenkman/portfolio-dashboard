@@ -5,6 +5,7 @@ const SERVER_URL = window.location.hostname === 'localhost' || window.location.h
 let currentGid = '0';
 let accountCache = {}; // { gid: data[] }
 let charts = {};
+let currentSort = { field: 'value', direction: 'desc' }; // default sort
 
 document.addEventListener('DOMContentLoaded', () => {
     initApp();
@@ -19,10 +20,25 @@ document.addEventListener('DOMContentLoaded', () => {
         initApp();
     });
 
-    document.getElementById('search-input').addEventListener('keyup', (e) => {
-        const term = e.target.value.toLowerCase();
-        filterTable(term);
+    document.querySelectorAll('.sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            const field = th.dataset.sort;
+            if (currentSort.field === field) {
+                currentSort.direction = currentSort.direction === 'desc' ? 'asc' : 'desc';
+            } else {
+                currentSort.field = field;
+                currentSort.direction = 'desc';
+            }
+            if (accountCache[currentGid]) {
+                renderWithData(accountCache[currentGid]);
+            }
+        });
     });
+
+    const btnAddAsset = document.getElementById('btn-add-asset');
+    if (btnAddAsset) {
+        btnAddAsset.addEventListener('click', renderAddAssetRow);
+    }
 });
 
 async function initApp() {
@@ -63,9 +79,50 @@ async function renderWithData(result) {
             if (originalDeposit > 0) localStorage.setItem(ORIGINAL_DEPOSIT_KEY, originalDeposit);
         }
     } catch {
-        // Server not running — fall back to localStorage override or sheet value
-        const stored = parseFloat(localStorage.getItem(ORIGINAL_DEPOSIT_KEY));
-        originalDeposit = stored > 0 ? stored : (result.originalDeposit || 0);
+        // Server not running - fall back to localStorage override or sheet value
+    }
+
+    // 2. Fallback to localStorage if server isn't available or new value wasn't fetched
+    if (originalDeposit === 0) {
+        let localDep = localStorage.getItem(ORIGINAL_DEPOSIT_KEY);
+        if (localDep !== null) {
+            originalDeposit = parseFloat(localDep);
+        } else if (result.originalDeposit) {
+            originalDeposit = result.originalDeposit;
+        }
+    }
+
+    // Apply sorting
+    if (currentSort.field) {
+        assets.sort((a, b) => {
+            let valA = a[currentSort.field];
+            let valB = b[currentSort.field];
+
+            // For strings (category, name, ticker)
+            if (typeof valA === 'string' && typeof valB === 'string') {
+                return currentSort.direction === 'asc'
+                    ? valA.localeCompare(valB, 'he')
+                    : valB.localeCompare(valA, 'he');
+            }
+
+            // For everything else (numbers)
+            // Need to handle contribution which is calculated later per row
+            if (currentSort.field === 'contribution') {
+                // Calculate portfolio total profit to determine contribution
+                let totalPProfit = 0;
+                let totalPCost = 0;
+                assets.forEach(asset => {
+                    totalPProfit += asset.profit;
+                    totalPCost += asset.cost;
+                });
+                const totalPYield = totalPCost > 0 ? (totalPProfit / totalPCost) * 100 : 0;
+
+                valA = totalPProfit !== 0 ? totalPYield * (a.profit / totalPProfit) : 0;
+                valB = totalPProfit !== 0 ? totalPYield * (b.profit / totalPProfit) : 0;
+            }
+
+            return currentSort.direction === 'asc' ? valA - valB : valB - valA;
+        });
     }
 
     updateKPIs(assets, originalDeposit);
@@ -318,6 +375,16 @@ function renderTable(data) {
 
     const isAllView = currentGid === '0';
 
+    // Add Asset Button is visible only in All view
+    const addAssetContainer = document.getElementById('add-asset-container');
+    if (addAssetContainer) {
+        if (isAllView) {
+            addAssetContainer.classList.remove('hidden');
+        } else {
+            addAssetContainer.classList.add('hidden');
+        }
+    }
+
     // Dividend column is visible only in specific account views
     const divHeader = document.getElementById('th-dividend');
     if (divHeader) divHeader.style.display = isAllView ? 'none' : '';
@@ -327,9 +394,11 @@ function renderTable(data) {
     const profitHeader = document.getElementById('th-profit');
     const returnHeader = document.getElementById('th-return');
     const contribHeader = document.getElementById('th-contribution');
+    const actionsHeader = document.getElementById('th-actions');
     if (profitHeader) profitHeader.style.display = showProfits ? '' : 'none';
     if (returnHeader) returnHeader.style.display = showProfits ? '' : 'none';
     if (contribHeader) contribHeader.style.display = showProfits ? '' : 'none';
+    if (actionsHeader) actionsHeader.style.display = isAllView ? '' : 'none';
 
     // Calculate portfolio totals for contribution calculation
     let totalPortfolioProfit = 0;
@@ -373,6 +442,14 @@ function renderTable(data) {
             ? `<td class="editable-cell positive-text" data-field="dividend" data-ticker="${asset.ticker}">${divValue > 0 ? formatILS(divValue) : '—'}</td>`
             : '';
 
+        const actionCell = isAllView
+            ? `<td>
+                 <button class="btn-icon delete-btn" title="מחק נכס" onclick="deleteAsset('${asset.ticker}', '${asset.name}')">
+                    <i class="fa-solid fa-trash"></i>
+                 </button>
+               </td>`
+            : '';
+
         const priceDisplay = asset.currentPrice > 0 ? '₪' + asset.currentPrice.toFixed(2) : 'לא זמין';
 
         tr.innerHTML = `
@@ -385,6 +462,7 @@ function renderTable(data) {
             <td>${formatILS(asset.value)}</td>
             ${contributionCells}
             ${divCell}
+            ${actionCell}
         `;
 
         // Add click-to-edit for editable cells (quantity/cost/dividend in account views)
@@ -403,6 +481,108 @@ function renderTable(data) {
 
         tbody.appendChild(tr);
     });
+}
+
+async function deleteAsset(ticker, name) {
+    if (!confirm(`האם אתה בטוח שברצונך למחוק את [${name}]? פעולה זו תמחק אותו מכל החשבונות.`)) {
+        return;
+    }
+
+    try {
+        const resp = await fetch(`${SERVER_URL}/api/asset/${encodeURIComponent(ticker)}`, {
+            method: 'DELETE'
+        });
+
+        if (!resp.ok) {
+            const err = await resp.json();
+            throw new Error(err.error || 'Failed to delete');
+        }
+
+        // Clear caches and refresh
+        for (const key in accountCache) delete accountCache[key];
+        await initApp();
+    } catch (err) {
+        console.error('Failed to delete asset:', err);
+        alert('שגיאה במחיקת נכס: ' + err.message);
+    }
+}
+
+function renderAddAssetRow() {
+    const tbody = document.getElementById('table-body');
+    if (document.getElementById('add-asset-row')) return; // already adding
+
+    const btnContainer = document.getElementById('add-asset-container');
+    if (btnContainer) btnContainer.classList.add('hidden');
+
+    const tr = document.createElement('tr');
+    tr.id = 'add-asset-row';
+    tr.style.backgroundColor = 'rgba(99, 102, 241, 0.1)';
+
+    tr.innerHTML = `
+        <td><input type="text" id="add-asset-category" class="cell-edit-input" placeholder="קטגוריה" required></td>
+        <td><input type="text" id="add-asset-name" class="cell-edit-input" placeholder="שם נייר" required></td>
+        <td><input type="text" id="add-asset-ticker" class="cell-edit-input" placeholder="טיקר" required></td>
+        <td>0</td>
+        <td>—</td>
+        <td>₪0</td>
+        <td>₪0</td>
+        <td>₪0</td>
+        <td>—</td>
+        <td>—</td>
+        <td>
+            <button class="btn-primary" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;" onclick="saveNewAsset(this)">שמור</button>
+            <button class="btn-primary" style="padding: 0.3rem 0.6rem; font-size: 0.8rem; background: rgba(255,255,255,0.1); margin-right: 0.3rem;" onclick="cancelAddAsset(this)">ביטול</button>
+        </td>
+    `;
+
+    tbody.appendChild(tr);
+    document.getElementById('add-asset-category').focus();
+}
+
+function cancelAddAsset(btn) {
+    const row = btn.closest('tr');
+    if (row) row.remove();
+
+    const btnContainer = document.getElementById('add-asset-container');
+    if (btnContainer && !document.getElementById('search-input').value) {
+        btnContainer.classList.remove('hidden');
+    }
+}
+
+async function saveNewAsset(btn) {
+    const category = document.getElementById('add-asset-category').value.trim();
+    const name = document.getElementById('add-asset-name').value.trim();
+    const ticker = document.getElementById('add-asset-ticker').value.trim();
+
+    if (!category || !name || !ticker) {
+        alert('אנא מלא את כל השדות (קטגוריה, שם, טיקר)');
+        return;
+    }
+
+    btn.textContent = '...';
+    btn.disabled = true;
+
+    try {
+        const resp = await fetch(`${SERVER_URL}/api/asset`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ category, name, ticker })
+        });
+
+        if (!resp.ok) {
+            const err = await resp.json();
+            throw new Error(err.error || 'Failed to save');
+        }
+
+        // Clear all caches and refresh
+        for (const key in accountCache) delete accountCache[key];
+        await initApp();
+    } catch (err) {
+        console.error('Failed to add asset:', err);
+        alert('שגיאה בהוספת נכס: ' + err.message);
+        btn.textContent = 'שמור';
+        btn.disabled = false;
+    }
 }
 
 function startMetaEdit(cell, asset) {

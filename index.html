@@ -132,32 +132,35 @@
             <div class="table-container glass-panel">
                 <div class="table-header">
                     <h3>פירוט אחזקות <i class="fa-solid fa-list table-title-icon"></i></h3>
-                    <div class="search-box">
-                        <i class="fa-solid fa-search"></i>
-                        <input type="text" id="search-input" placeholder="חיפוש נכס...">
-                    </div>
                 </div>
                 <div class="table-responsive">
                     <table id="holdings-table">
                         <thead>
                             <tr>
-                                <th>נכס</th>
-                                <th>נייר</th>
-                                <th>טיקר</th>
-                                <th>כמות</th>
-                                <th>שער נוכחי</th>
-                                <th>עלות קנייה</th>
-                                <th>שווי שוק</th>
-                                <th id="th-profit">רווח/הפסד</th>
-                                <th id="th-return">תשואה</th>
-                                <th id="th-contribution">תרומה</th>
-                                <th id="th-dividend">דיבידנד</th>
+                                <th data-sort="category" class="sortable">קטגוריה</th>
+                                <th data-sort="name" class="sortable">שם נייר</th>
+                                <th data-sort="ticker" class="sortable">טיקר</th>
+                                <th data-sort="quantity" class="sortable">כמות</th>
+                                <th data-sort="currentPrice" class="sortable">שער נוכחי</th>
+                                <th data-sort="cost" class="sortable">עלות כוללת</th>
+                                <th data-sort="value" class="sortable">שווי שוק</th>
+                                <th id="th-profit" data-sort="profit" class="sortable">רווח/הפסד</th>
+                                <th id="th-return" data-sort="profitPercent" class="sortable">תשואה</th>
+                                <th id="th-contribution" data-sort="contribution" class="sortable">תרומה</th>
+                                <th id="th-dividend" data-sort="dividend" class="sortable">דיבידנד</th>
+                                <th id="th-actions">פעולות</th>
                             </tr>
                         </thead>
                         <tbody id="table-body">
                             <!-- Rows dynamically populated -->
-                        </tbody>
                     </table>
+                </div>
+
+                <div id="add-asset-container" class="hidden" style="margin-top: 1rem; text-align: center;">
+                    <button id="btn-add-asset" class="btn-primary"
+                        style="margin: 0 auto; padding: 0.5rem 1rem; font-size: 0.9rem;">
+                        <i class="fa-solid fa-plus"></i> הוסף נכס חדש
+                    </button>
                 </div>
             </div>
         </main>

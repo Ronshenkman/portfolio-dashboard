@@ -238,6 +238,78 @@ app.put('/api/asset/:oldTicker', (req, res) => {
     }
 });
 
+// Delete an asset entirely from all accounts
+app.delete('/api/asset/:ticker', (req, res) => {
+    try {
+        const { ticker } = req.params;
+        const db = readData();
+
+        for (const key in db.accounts) {
+            if (db.accounts[key].assets) {
+                db.accounts[key].assets = db.accounts[key].assets.filter(a => a.ticker !== ticker);
+            }
+        }
+
+        writeData(db);
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Create a new asset globally (adds to the first account with 0 quantity)
+app.post('/api/asset', (req, res) => {
+    try {
+        const { category, name, ticker } = req.body;
+        if (!category || !name || !ticker) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        const db = readData();
+        let exists = false;
+
+        // Check if ticker already exists anywhere
+        for (const key in db.accounts) {
+            if ((db.accounts[key].assets || []).some(a => a.ticker === ticker)) {
+                exists = true;
+                break;
+            }
+        }
+
+        if (exists) {
+            return res.status(400).json({ error: 'Asset already exists in portfolio' });
+        }
+
+        // Add to the first account available
+        const accountKeys = Object.keys(db.accounts);
+        if (accountKeys.length > 0) {
+            const firstAccount = db.accounts[accountKeys[0]];
+            if (!firstAccount.assets) firstAccount.assets = [];
+
+            // Determine exchange for foreign tickers (basic heuristic: if it has letters, default to LON)
+            const isForeign = /[a-zA-Z]/.test(ticker);
+            const newAsset = {
+                category,
+                name,
+                ticker,
+                quantity: 0,
+                cost: 0,
+                dividend: 0
+            };
+            if (isForeign) newAsset.exchange = 'LON';
+
+            firstAccount.assets.push(newAsset);
+            writeData(db);
+            res.json({ ok: true, asset: newAsset });
+        } else {
+            res.status(400).json({ error: 'No accounts found to add asset to' });
+        }
+
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Fetch full portfolio data for a specific account (or 0 for all)
 app.get('/api/portfolio/:gid', async (req, res) => {
     try {
