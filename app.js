@@ -141,6 +141,9 @@ function updateKPIs(data, originalDeposit) {
         totalDividend += asset.dividend || 0;
     });
 
+    // Update Matrix
+    renderAllocationMatrix(data, totalValue);
+
     // Profit on open positions (now includes dividends)
     const totalProfit = totalValue - totalCost + totalDividend;
     const totalPercent = totalCost > 0 ? (totalProfit / totalCost) * 100 : 0;
@@ -518,8 +521,18 @@ function renderAddAssetRow() {
     tr.id = 'add-asset-row';
     tr.style.backgroundColor = 'rgba(99, 102, 241, 0.1)';
 
+    const categoryOptions = `
+        <option value="" disabled selected>בחר קטגוריה</option>
+        <option value='מניות - ישראל'>מניות - ישראל</option>
+        <option value='מניות - חו"ל'>מניות - חו"ל</option>
+        <option value='אג"ח סיכון - ישראל'>אג"ח סיכון - ישראל</option>
+        <option value='אג"ח סיכון - חו"ל'>אג"ח סיכון - חו"ל</option>
+        <option value='אג"ח דירוג גבוה - ישראל'>אג"ח דירוג גבוה - ישראל</option>
+        <option value='אג"ח דירוג גבוה - חו"ל'>אג"ח דירוג גבוה - חו"ל</option>
+    `;
+
     tr.innerHTML = `
-        <td><input type="text" id="add-asset-category" class="cell-edit-input" placeholder="קטגוריה" required></td>
+        <td><select id="add-asset-category" class="cell-edit-input" required>${categoryOptions}</select></td>
         <td><input type="text" id="add-asset-name" class="cell-edit-input" placeholder="שם נייר" required></td>
         <td><input type="text" id="add-asset-ticker" class="cell-edit-input" placeholder="טיקר" required></td>
         <td>0</td>
@@ -586,25 +599,52 @@ async function saveNewAsset(btn) {
 }
 
 function startMetaEdit(cell, asset) {
-    if (cell.querySelector('input')) return;
+    if (cell.querySelector('input') || cell.querySelector('select')) return;
 
     const field = cell.dataset.metaField;
     const rawValue = asset[field];
 
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'cell-edit-input';
-    input.value = rawValue;
+    let input;
+    if (field === 'category') {
+        input = document.createElement('select');
+        input.className = 'cell-edit-input';
+        const options = [
+            'מניות - ישראל', 'מניות - חו"ל',
+            'אג"ח סיכון - ישראל', 'אג"ח סיכון - חו"ל',
+            'אג"ח דירוג גבוה - ישראל', 'אג"ח דירוג גבוה - חו"ל'
+        ];
+        options.forEach(opt => {
+            const el = document.createElement('option');
+            el.value = opt;
+            el.textContent = opt;
+            if (opt === rawValue) el.selected = true;
+            input.appendChild(el);
+        });
+    } else {
+        input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'cell-edit-input';
+        input.value = rawValue;
+    }
 
     cell.textContent = '';
     cell.appendChild(input);
     input.focus();
-    input.select();
+    if (field !== 'category') input.select();
 
-    const save = () => saveMetaEdit(cell, asset, field, input.value);
+    let saving = false;
+    const save = () => {
+        if (saving) return;
+        saving = true;
+        saveMetaEdit(cell, asset, field, input.value);
+    };
+
     input.addEventListener('blur', save);
+    if (field === 'category') {
+        input.addEventListener('change', save);
+    }
     input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { input.removeEventListener('blur', save); save(); }
+        if (e.key === 'Enter') { save(); }
         if (e.key === 'Escape') {
             input.removeEventListener('blur', save);
             cell.innerHTML = field === 'category' ? `<strong>${rawValue}</strong>` : (field === 'ticker' ? `<small>${rawValue}</small>` : rawValue);
@@ -613,7 +653,7 @@ function startMetaEdit(cell, asset) {
 }
 
 async function saveMetaEdit(cell, asset, field, newValue) {
-    if (!newValue.trim()) {
+    if (!newValue.trim() || newValue.trim() === String(asset[field])) {
         cell.innerHTML = field === 'category' ? `<strong>${asset[field]}</strong>` : (field === 'ticker' ? `<small>${asset[field]}</small>` : asset[field]);
         return;
     }
@@ -743,4 +783,120 @@ function toggleLoader(show) {
             main.style.opacity = 1;
         }, 50);
     }
+}
+
+// Allocation Matrix logic
+function renderAllocationMatrix(assets, totalValue) {
+    const matrixContainer = document.getElementById('matrix-container');
+    const matrixTable = document.getElementById('matrix-table');
+    if (!matrixContainer || !matrixTable) return;
+
+    if (currentGid !== '0' || assets.length === 0 || totalValue === 0) {
+        matrixContainer.style.display = 'none';
+        return;
+    }
+
+    matrixContainer.style.display = 'block';
+
+    const data = {
+        'ישראל': { 'מניות': 0, 'אג"ח סיכון': 0, 'אג"ח דירוג גבוה': 0, total: 0 },
+        'חו"ל': { 'מניות': 0, 'אג"ח סיכון': 0, 'אג"ח דירוג גבוה': 0, total: 0 }
+    };
+
+    let matrixTotal = 0;
+
+    assets.forEach(asset => {
+        if (!asset.category) return;
+        const parts = asset.category.split(' - ');
+        if (parts.length === 2) {
+            const type = parts[0].trim();
+            const region = parts[1].trim();
+            if (data[region] && data[region][type] !== undefined) {
+                data[region][type] += asset.value;
+                data[region].total += asset.value;
+                matrixTotal += asset.value;
+            }
+        }
+    });
+
+    const fmtILS = (val) => formatILS(val);
+    const fmtPct = (val) => totalValue > 0 ? (val / totalValue * 100).toFixed(1) + '%' : '0%';
+
+    // Calculate totals for columns
+    const totalStocks = data['ישראל']['מניות'] + data['חו"ל']['מניות'];
+    const totalHighYield = data['ישראל']['אג"ח סיכון'] + data['חו"ל']['אג"ח סיכון'];
+    const totalIG = data['ישראל']['אג"ח דירוג גבוה'] + data['חו"ל']['אג"ח דירוג גבוה'];
+
+    matrixTable.innerHTML = `
+        <thead>
+            <tr>
+                <th>אזור</th>
+                <th>מניות</th>
+                <th>אג"ח דירוג גבוה</th>
+                <th>אג"ח סיכון</th>
+                <th>סה"כ אזור</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>ישראל</strong></td>
+                <td>
+                    <div class="matrix-val">${fmtILS(data['ישראל']['מניות'])}</div>
+                    <div class="matrix-pct">${fmtPct(data['ישראל']['מניות'])}</div>
+                </td>
+                <td>
+                    <div class="matrix-val">${fmtILS(data['ישראל']['אג"ח דירוג גבוה'])}</div>
+                    <div class="matrix-pct">${fmtPct(data['ישראל']['אג"ח דירוג גבוה'])}</div>
+                </td>
+                <td>
+                    <div class="matrix-val">${fmtILS(data['ישראל']['אג"ח סיכון'])}</div>
+                    <div class="matrix-pct">${fmtPct(data['ישראל']['אג"ח סיכון'])}</div>
+                </td>
+                <td>
+                    <div class="matrix-val"><strong>${fmtILS(data['ישראל'].total)}</strong></div>
+                    <div class="matrix-pct"><strong>${fmtPct(data['ישראל'].total)}</strong></div>
+                </td>
+            </tr>
+            <tr>
+                <td><strong>חו"ל</strong></td>
+                <td>
+                    <div class="matrix-val">${fmtILS(data['חו"ל']['מניות'])}</div>
+                    <div class="matrix-pct">${fmtPct(data['חו"ל']['מניות'])}</div>
+                </td>
+                <td>
+                    <div class="matrix-val">${fmtILS(data['חו"ל']['אג"ח דירוג גבוה'])}</div>
+                    <div class="matrix-pct">${fmtPct(data['חו"ל']['אג"ח דירוג גבוה'])}</div>
+                </td>
+                <td>
+                    <div class="matrix-val">${fmtILS(data['חו"ל']['אג"ח סיכון'])}</div>
+                    <div class="matrix-pct">${fmtPct(data['חו"ל']['אג"ח סיכון'])}</div>
+                </td>
+                <td>
+                    <div class="matrix-val"><strong>${fmtILS(data['חו"ל'].total)}</strong></div>
+                    <div class="matrix-pct"><strong>${fmtPct(data['חו"ל'].total)}</strong></div>
+                </td>
+            </tr>
+        </tbody>
+        <tfoot>
+            <tr style="background-color: rgba(99, 102, 241, 0.15);">
+                <td><strong>סה"כ כללי (מתוך סך התיק)</strong></td>
+                <td>
+                    <div class="matrix-val"><strong>${fmtILS(totalStocks)}</strong></div>
+                    <div class="matrix-pct"><strong>${fmtPct(totalStocks)}</strong></div>
+                </td>
+                <td>
+                    <div class="matrix-val"><strong>${fmtILS(totalIG)}</strong></div>
+                    <div class="matrix-pct"><strong>${fmtPct(totalIG)}</strong></div>
+                </td>
+                <td>
+                    <div class="matrix-val"><strong>${fmtILS(totalHighYield)}</strong></div>
+                    <div class="matrix-pct"><strong>${fmtPct(totalHighYield)}</strong></div>
+                </td>
+                <td>
+                    <div class="matrix-val"><strong>${fmtILS(totalStocks + totalIG + totalHighYield)}</strong></div>
+                    <div class="matrix-pct"><strong>${fmtPct(totalStocks + totalIG + totalHighYield)}</strong></div>
+                </td>
+            </tr>
+        </tfoot>
+    `;
 }
