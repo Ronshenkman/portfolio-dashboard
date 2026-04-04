@@ -41,10 +41,16 @@ let bucket;
 
 try {
     const credPath = path.join(__dirname, 'credentials.json');
-    if (fs.existsSync(credPath)) {
+    if (process.env.GCP_CREDENTIALS) {
+        const credentials = JSON.parse(process.env.GCP_CREDENTIALS);
+        storage = new Storage({ credentials });
+        console.log("Initialized GCS using Environment Variable.");
+    } else if (fs.existsSync(credPath)) {
         storage = new Storage({ keyFilename: credPath });
+        console.log("Initialized GCS using local credentials.json.");
     } else {
         storage = new Storage();
+        console.log("Attempting GCS initialization with default credentials...");
     }
     bucket = storage.bucket(BUCKET_NAME);
     
@@ -89,6 +95,19 @@ async function readData() {
     }
     const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
     cachedData = JSON.parse(JSON.stringify(data));
+    
+    if (bucket) {
+        try {
+            const jsonStr = JSON.stringify(data, null, 2);
+            await bucket.file('portfolio_data.json').save(jsonStr, {
+                contentType: 'application/json'
+            });
+            console.log("Initial sync to GCS completed successfully.");
+        } catch (err) {
+            console.error("Initial GCS sync failed:", err.message);
+        }
+    }
+    
     return data;
 }
 
