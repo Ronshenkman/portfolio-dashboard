@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { google } = require('googleapis'); // No longer needed, left for backward compat before cleanup
+const { Storage } = require('@google-cloud/storage');
 const path = require('path');
 
 const app = express();
@@ -33,16 +33,80 @@ const cheerio = require('cheerio');
 
 const DATA_FILE = path.join(__dirname, 'portfolio_data.json');
 
+// --- GCS Setup ---
+const BUCKET_NAME = 'portfolio-data-bucket-project-23873a2b-16b4-449a-840';
+
+let storage;
+let bucket;
+
+try {
+    const credPath = path.join(__dirname, 'credentials.json');
+    if (fs.existsSync(credPath)) {
+        storage = new Storage({ keyFilename: credPath });
+    } else {
+        storage = new Storage();
+    }
+    bucket = storage.bucket(BUCKET_NAME);
+    
+    bucket.exists().then(([exists]) => {
+        if (!exists) {
+            console.log(`Creating GCS bucket ${BUCKET_NAME}...`);
+            storage.createBucket(BUCKET_NAME).catch(err => {
+                console.error("Failed to create bucket:", err.message);
+            });
+        }
+    }).catch(err => {
+        console.error("Error checking bucket:", err.message);
+    });
+} catch (e) {
+    console.warn("Could not initialize Google Cloud Storage:", e);
+}
+
+let cachedData = null;
+
 // ─── Data Helpers ─────────────────────────────────────────────────────────────
-function readData() {
+async function readData() {
+    if (cachedData) return JSON.parse(JSON.stringify(cachedData));
+
+    if (bucket) {
+        try {
+            const file = bucket.file('portfolio_data.json');
+            const [exists] = await file.exists();
+            if (exists) {
+                const [content] = await file.download();
+                cachedData = JSON.parse(content.toString('utf8'));
+                // back up locally
+                fs.writeFileSync(DATA_FILE, JSON.stringify(cachedData, null, 2), 'utf8');
+                return JSON.parse(JSON.stringify(cachedData));
+            }
+        } catch (err) {
+            console.error("Failed to read from GCS:", err.message);
+        }
+    }
+
     if (!fs.existsSync(DATA_FILE)) {
         return { originalDeposit: 0, accounts: {} };
     }
-    return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    cachedData = JSON.parse(JSON.stringify(data));
+    return data;
 }
 
-function writeData(data) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
+async function writeData(data) {
+    cachedData = JSON.parse(JSON.stringify(data));
+    const jsonStr = JSON.stringify(data, null, 2);
+    fs.writeFileSync(DATA_FILE, jsonStr, 'utf8');
+
+    if (bucket) {
+        try {
+            await bucket.file('portfolio_data.json').save(jsonStr, {
+                contentType: 'application/json'
+            });
+            console.log("Saved to GCS successfully.");
+        } catch (err) {
+            console.error("Failed to write to GCS:", err.message);
+        }
+    }
 }
 
 // ─── Scraping Helper ──────────────────────────────────────────────────────────
@@ -126,7 +190,7 @@ async function getLivePrice(ticker) {
     } else {
         // Foreign ETF — use Yahoo Finance (returns Agorot-equivalent after conversion)
         // Determine exchange from portfolio data
-        const db = readData();
+        const db = await readData();
         let exchange = 'LON'; // default
         for (const key in db.accounts) {
             const asset = (db.accounts[key].assets || []).find(a => a.ticker === ticker);
@@ -144,9 +208,9 @@ async function getLivePrice(ticker) {
 // ─── API Endpoints ────────────────────────────────────────────────────────────
 
 // Get original deposit (backward compatibility with previous frontend version)
-app.get('/deposit', (req, res) => {
+app.get('/deposit', async (req, res) => {
     try {
-        const data = readData();
+        const data = await readData();
         res.json({ value: data.originalDeposit || 0 });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -154,15 +218,15 @@ app.get('/deposit', (req, res) => {
 });
 
 // Update original deposit
-app.post('/deposit', (req, res) => {
+app.post('/deposit', async (req, res) => {
     const { value } = req.body;
     if (typeof value !== 'number' || isNaN(value) || value < 0) {
         return res.status(400).json({ error: 'Invalid value' });
     }
     try {
-        const data = readData();
+        const data = await readData();
         data.originalDeposit = value;
-        writeData(data);
+        await writeData(data);
         res.json({ ok: true, value });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -170,11 +234,11 @@ app.post('/deposit', (req, res) => {
 });
 
 // Update quantity and cost for a specific asset in a specific account
-app.put('/api/portfolio/:gid/:ticker', (req, res) => {
+app.put('/api/portfolio/:gid/:ticker', async (req, res) => {
     try {
         const { gid, ticker } = req.params;
         const { quantity, cost, dividend } = req.body;
-        const db = readData();
+        const db = await readData();
 
         if (!db.accounts[gid]) {
             return res.status(404).json({ error: 'Account not found' });
@@ -207,7 +271,7 @@ app.put('/api/portfolio/:gid/:ticker', (req, res) => {
             }
         }
 
-        writeData(db);
+        await writeData(db);
         res.json({ ok: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -215,11 +279,11 @@ app.put('/api/portfolio/:gid/:ticker', (req, res) => {
 });
 
 // Update asset metadata (category, name, ticker) globally across all accounts
-app.put('/api/asset/:oldTicker', (req, res) => {
+app.put('/api/asset/:oldTicker', async (req, res) => {
     try {
         const { oldTicker } = req.params;
         const { category, name, ticker: newTicker } = req.body;
-        const db = readData();
+        const db = await readData();
 
         for (const key in db.accounts) {
             for (const asset of (db.accounts[key].assets || [])) {
@@ -231,7 +295,7 @@ app.put('/api/asset/:oldTicker', (req, res) => {
             }
         }
 
-        writeData(db);
+        await writeData(db);
         res.json({ ok: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -239,10 +303,10 @@ app.put('/api/asset/:oldTicker', (req, res) => {
 });
 
 // Delete an asset entirely from all accounts
-app.delete('/api/asset/:ticker', (req, res) => {
+app.delete('/api/asset/:ticker', async (req, res) => {
     try {
         const { ticker } = req.params;
-        const db = readData();
+        const db = await readData();
 
         for (const key in db.accounts) {
             if (db.accounts[key].assets) {
@@ -250,7 +314,7 @@ app.delete('/api/asset/:ticker', (req, res) => {
             }
         }
 
-        writeData(db);
+        await writeData(db);
         res.json({ ok: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -258,14 +322,14 @@ app.delete('/api/asset/:ticker', (req, res) => {
 });
 
 // Create a new asset globally (adds to the first account with 0 quantity)
-app.post('/api/asset', (req, res) => {
+app.post('/api/asset', async (req, res) => {
     try {
         const { category, name, ticker } = req.body;
         if (!category || !name || !ticker) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
-        const db = readData();
+        const db = await readData();
         let exists = false;
 
         // Check if ticker already exists anywhere
@@ -299,7 +363,7 @@ app.post('/api/asset', (req, res) => {
             if (isForeign) newAsset.exchange = 'LON';
 
             firstAccount.assets.push(newAsset);
-            writeData(db);
+            await writeData(db);
             res.json({ ok: true, asset: newAsset });
         } else {
             res.status(400).json({ error: 'No accounts found to add asset to' });
@@ -314,7 +378,7 @@ app.post('/api/asset', (req, res) => {
 app.get('/api/portfolio/:gid', async (req, res) => {
     try {
         const { gid } = req.params;
-        const db = readData();
+        const db = await readData();
         const assetsRaw = [];
 
         if (gid === '0') {
