@@ -48,22 +48,8 @@ try {
     } else if (fs.existsSync(credPath)) {
         storage = new Storage({ keyFilename: credPath });
         console.log("Initialized GCS using local credentials.json.");
-    } else {
-        storage = new Storage();
-        console.log("Attempting GCS initialization with default credentials...");
     }
     bucket = storage.bucket(BUCKET_NAME);
-    
-    bucket.exists().then(([exists]) => {
-        if (!exists) {
-            console.log(`Creating GCS bucket ${BUCKET_NAME}...`);
-            storage.createBucket(BUCKET_NAME).catch(err => {
-                console.error("Failed to create bucket:", err.message);
-            });
-        }
-    }).catch(err => {
-        console.error("Error checking bucket:", err.message);
-    });
 } catch (e) {
     console.warn("Could not initialize Google Cloud Storage:", e);
 }
