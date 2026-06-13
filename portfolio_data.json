@@ -1,5 +1,4 @@
 {
-  "originalDeposit": 2345609,
   "accounts": {
     "400753915": {
       "name": "סבתא גמל",
@@ -261,5 +260,6 @@
         }
       ]
     }
-  }
+  },
+  "originalDeposit": 2345609
 }

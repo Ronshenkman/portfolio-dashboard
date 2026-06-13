@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { Storage } = require('@google-cloud/storage');
+const { MongoClient } = require('mongodb');
 const path = require('path');
 
 const app = express();
@@ -33,25 +33,29 @@ const cheerio = require('cheerio');
 
 const DATA_FILE = path.join(__dirname, 'portfolio_data.json');
 
-// --- GCS Setup ---
-const BUCKET_NAME = 'portfolio-data-bucket-project-23873a2b-16b4-449a-840';
+// --- MongoDB Setup ---
+const MONGO_URI = process.env.MONGO_URI;
 
-let storage;
-let bucket;
+let dbClient = null;
+let dbCollection = null;
 
-try {
-    const credPath = path.join(__dirname, 'credentials.json');
-    if (process.env.GCP_CREDENTIALS) {
-        const credentials = JSON.parse(process.env.GCP_CREDENTIALS);
-        storage = new Storage({ credentials });
-        console.log("Initialized GCS using Environment Variable.");
-    } else if (fs.existsSync(credPath)) {
-        storage = new Storage({ keyFilename: credPath });
-        console.log("Initialized GCS using local credentials.json.");
+async function getCollection() {
+    if (dbCollection) return dbCollection;
+    if (!MONGO_URI) {
+        console.warn("MONGO_URI not set. Running in local fallback mode.");
+        return null;
     }
-    bucket = storage.bucket(BUCKET_NAME);
-} catch (e) {
-    console.warn("Could not initialize Google Cloud Storage:", e);
+    try {
+        dbClient = new MongoClient(MONGO_URI);
+        await dbClient.connect();
+        const db = dbClient.db('portfolio_db');
+        dbCollection = db.collection('portfolio_data');
+        console.log("Connected to MongoDB successfully.");
+        return dbCollection;
+    } catch (e) {
+        console.error("Could not initialize MongoDB:", e.message);
+        return null;
+    }
 }
 
 let cachedData = null;
@@ -60,19 +64,19 @@ let cachedData = null;
 async function readData() {
     if (cachedData) return JSON.parse(JSON.stringify(cachedData));
 
-    if (bucket) {
+    const col = await getCollection();
+    if (col) {
         try {
-            const file = bucket.file('portfolio_data.json');
-            const [exists] = await file.exists();
-            if (exists) {
-                const [content] = await file.download();
-                cachedData = JSON.parse(content.toString('utf8'));
+            const doc = await col.findOne({ _id: 'main_portfolio' });
+            if (doc) {
+                const { _id, ...cleanData } = doc;
+                cachedData = cleanData;
                 // back up locally
                 fs.writeFileSync(DATA_FILE, JSON.stringify(cachedData, null, 2), 'utf8');
                 return JSON.parse(JSON.stringify(cachedData));
             }
         } catch (err) {
-            console.error("Failed to read from GCS:", err.message);
+            console.error("Failed to read from MongoDB:", err.message);
         }
     }
 
@@ -82,15 +86,16 @@ async function readData() {
     const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
     cachedData = JSON.parse(JSON.stringify(data));
     
-    if (bucket) {
+    if (col) {
         try {
-            const jsonStr = JSON.stringify(data, null, 2);
-            await bucket.file('portfolio_data.json').save(jsonStr, {
-                contentType: 'application/json'
-            });
-            console.log("Initial sync to GCS completed successfully.");
+            await col.updateOne(
+                { _id: 'main_portfolio' },
+                { $set: data },
+                { upsert: true }
+            );
+            console.log("Initial sync to MongoDB completed successfully.");
         } catch (err) {
-            console.error("Initial GCS sync failed:", err.message);
+            console.error("Initial MongoDB sync failed:", err.message);
         }
     }
     
@@ -102,14 +107,17 @@ async function writeData(data) {
     const jsonStr = JSON.stringify(data, null, 2);
     fs.writeFileSync(DATA_FILE, jsonStr, 'utf8');
 
-    if (bucket) {
+    const col = await getCollection();
+    if (col) {
         try {
-            await bucket.file('portfolio_data.json').save(jsonStr, {
-                contentType: 'application/json'
-            });
-            console.log("Saved to GCS successfully.");
+            await col.updateOne(
+                { _id: 'main_portfolio' },
+                { $set: data },
+                { upsert: true }
+            );
+            console.log("Saved to MongoDB successfully.");
         } catch (err) {
-            console.error("Failed to write to GCS:", err.message);
+            console.error("Failed to write to MongoDB:", err.message);
         }
     }
 }
