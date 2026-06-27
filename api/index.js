@@ -1,23 +1,22 @@
-const url = require('url');
 const app = require('../server.js');
 
 module.exports = (req, res) => {
-    const parsedUrl = url.parse(req.url, true);
-    if (parsedUrl.query && parsedUrl.query.url !== undefined) {
-        let targetUrl = parsedUrl.query.url || '/';
+    const parsedUrl = new URL(req.url, 'http://localhost');
+    const urlParam = parsedUrl.searchParams.get('url');
+
+    if (urlParam !== null) {
+        let targetUrl = urlParam || '/';
 
         // Ensure it starts with /
         if (!targetUrl.startsWith('/')) {
             targetUrl = '/' + targetUrl;
         }
 
-        // Re-append other query parameters (excluding our own 'url' key)
-        const queryParams = { ...parsedUrl.query };
-        delete queryParams.url;
-
-        const searchParams = new URLSearchParams(queryParams).toString();
-        if (searchParams) {
-            targetUrl += '?' + searchParams;
+        // Re-append other query parameters (excluding 'url')
+        parsedUrl.searchParams.delete('url');
+        const search = parsedUrl.searchParams.toString();
+        if (search) {
+            targetUrl += '?' + search;
         }
 
         req.url = targetUrl;
