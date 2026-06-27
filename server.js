@@ -464,9 +464,13 @@ app.get('/api/portfolio/:gid', async (req, res) => {
 app.use(express.static(__dirname));
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n🚀 Portfolio server running at http://localhost:${PORT}`);
-    console.log(`   Dashboard: http://localhost:${PORT}/index.html`);
-    console.log(`   GET  http://localhost:${PORT}/deposit  — read deposit`);
-    console.log(`   POST http://localhost:${PORT}/deposit  — write deposit\n`);
-});
+if (process.env.NODE_ENV !== 'production' || require.main === module) {
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log(`\n🚀 Portfolio server running at http://localhost:${PORT}`);
+        console.log(`   Dashboard: http://localhost:${PORT}/index.html`);
+        console.log(`   GET  http://localhost:${PORT}/deposit  — read deposit`);
+        console.log(`   POST http://localhost:${PORT}/deposit  — write deposit\n`);
+    });
+}
+
+module.exports = app;
