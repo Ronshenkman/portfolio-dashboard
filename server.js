@@ -9,21 +9,20 @@ app.use(express.json());
 
 // ─── Authentication Middleware ────────────────────────────────────────────────
 const APP_PASSWORD = process.env.APP_PASSWORD || '010699';
-app.use((req, res, next) => {
-    // Allow CORS preflight and allow anyone to bypass for specific public endpoints if we had any
+function requireAuth(req, res, next) {
     if (req.method === 'OPTIONS') return next();
 
     const b64auth = (req.headers.authorization || '').split(' ')[1] || '';
     const [login, password] = Buffer.from(b64auth, 'base64').toString().split(':');
 
-    // We allow either username or password to be the required password (just in case they put it in the wrong field)
+    // We allow either username or password to be the required password
     if (password === APP_PASSWORD || login === APP_PASSWORD) {
         return next();
     }
 
     res.set('WWW-Authenticate', 'Basic realm="Portfolio Dashboard"');
     res.status(401).send('Authentication required.');
-});
+}
 
 // Removed Google Sheets vars
 
@@ -221,7 +220,7 @@ async function getLivePrice(ticker) {
 // ─── API Endpoints ────────────────────────────────────────────────────────────
 
 // Get original deposit (backward compatibility with previous frontend version)
-app.get('/deposit', async (req, res) => {
+app.get('/deposit', requireAuth, async (req, res) => {
     try {
         const data = await readData();
         res.json({ value: data.originalDeposit || 0 });
@@ -231,7 +230,7 @@ app.get('/deposit', async (req, res) => {
 });
 
 // Update original deposit
-app.post('/deposit', async (req, res) => {
+app.post('/deposit', requireAuth, async (req, res) => {
     const { value } = req.body;
     if (typeof value !== 'number' || isNaN(value) || value < 0) {
         return res.status(400).json({ error: 'Invalid value' });
@@ -247,7 +246,7 @@ app.post('/deposit', async (req, res) => {
 });
 
 // Update quantity and cost for a specific asset in a specific account
-app.put('/api/portfolio/:gid/:ticker', async (req, res) => {
+app.put('/api/portfolio/:gid/:ticker', requireAuth, async (req, res) => {
     try {
         const { gid, ticker } = req.params;
         const { quantity, cost, dividend } = req.body;
@@ -292,7 +291,7 @@ app.put('/api/portfolio/:gid/:ticker', async (req, res) => {
 });
 
 // Update asset metadata (category, name, ticker) globally across all accounts
-app.put('/api/asset/:oldTicker', async (req, res) => {
+app.put('/api/asset/:oldTicker', requireAuth, async (req, res) => {
     try {
         const { oldTicker } = req.params;
         const { category, name, ticker: newTicker } = req.body;
@@ -316,7 +315,7 @@ app.put('/api/asset/:oldTicker', async (req, res) => {
 });
 
 // Delete an asset entirely from all accounts
-app.delete('/api/asset/:ticker', async (req, res) => {
+app.delete('/api/asset/:ticker', requireAuth, async (req, res) => {
     try {
         const { ticker } = req.params;
         const db = await readData();
@@ -335,7 +334,7 @@ app.delete('/api/asset/:ticker', async (req, res) => {
 });
 
 // Create a new asset globally (adds to the first account with 0 quantity)
-app.post('/api/asset', async (req, res) => {
+app.post('/api/asset', requireAuth, async (req, res) => {
     try {
         const { category, name, ticker } = req.body;
         if (!category || !name || !ticker) {
@@ -388,7 +387,7 @@ app.post('/api/asset', async (req, res) => {
 });
 
 // Fetch full portfolio data for a specific account (or 0 for all)
-app.get('/api/portfolio/:gid', async (req, res) => {
+app.get('/api/portfolio/:gid', requireAuth, async (req, res) => {
     try {
         const { gid } = req.params;
         const db = await readData();

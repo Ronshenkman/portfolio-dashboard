@@ -7,6 +7,38 @@ let accountCache = {}; // { gid: data[] }
 let charts = {};
 let currentSort = { field: 'value', direction: 'desc' }; // default sort
 
+// ─── Auth Helper ─────────────────────────────────────────────────────────────
+function getAuthHeaders() {
+    let password = sessionStorage.getItem('app_password');
+    if (!password) {
+        password = prompt('Enter password to access the dashboard:');
+        if (!password) return null;
+        sessionStorage.setItem('app_password', password);
+    }
+    const encoded = btoa(password + ':' + password);
+    return { 'Authorization': 'Basic ' + encoded };
+}
+
+async function authFetch(url, options = {}) {
+    const headers = getAuthHeaders();
+    if (!headers) return null;
+    const response = await fetch(url, {
+        ...options,
+        headers: { ...headers, ...(options.headers || {}) }
+    });
+    if (response.status === 401) {
+        // Password was wrong, clear it and retry once
+        sessionStorage.removeItem('app_password');
+        const newHeaders = getAuthHeaders();
+        if (!newHeaders) return null;
+        return fetch(url, {
+            ...options,
+            headers: { ...newHeaders, ...(options.headers || {}) }
+        });
+    }
+    return response;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     initApp();
 
@@ -51,8 +83,8 @@ async function initApp() {
     }
 
     try {
-        const response = await fetch(`${SERVER_URL}/api/portfolio/${currentGid}`);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const response = await authFetch(`${SERVER_URL}/api/portfolio/${currentGid}`);
+        if (!response || !response.ok) throw new Error(`HTTP ${response?.status}`);
         const data = await response.json();
 
         accountCache[currentGid] = data;
@@ -71,8 +103,8 @@ async function renderWithData(result) {
 
     // 1. Try the local server first (authoritative source)
     try {
-        const resp = await fetch(`${SERVER_URL}/deposit`, { signal: AbortSignal.timeout(2000) });
-        if (resp.ok) {
+        const resp = await authFetch(`${SERVER_URL}/deposit`, { signal: AbortSignal.timeout(4000) });
+        if (resp && resp.ok) {
             const data = await resp.json();
             originalDeposit = data.value || 0;
             // Sync localStorage to match the server value
@@ -225,7 +257,7 @@ async function saveDeposit() {
         // Try to write to server (Google Sheets)
         let savedToSheet = false;
         try {
-            const resp = await fetch(`${SERVER_URL}/deposit`, {
+            const resp = await authFetch(`${SERVER_URL}/deposit`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ value: val }),
@@ -492,7 +524,7 @@ async function deleteAsset(ticker, name) {
     }
 
     try {
-        const resp = await fetch(`${SERVER_URL}/api/asset/${encodeURIComponent(ticker)}`, {
+        const resp = await authFetch(`${SERVER_URL}/api/asset/${encodeURIComponent(ticker)}`, {
             method: 'DELETE'
         });
 
@@ -576,7 +608,7 @@ async function saveNewAsset(btn) {
     btn.disabled = true;
 
     try {
-        const resp = await fetch(`${SERVER_URL}/api/asset`, {
+        const resp = await authFetch(`${SERVER_URL}/api/asset`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ category, name, ticker })
@@ -664,7 +696,7 @@ async function saveMetaEdit(cell, asset, field, newValue) {
         const body = {};
         body[field] = newValue.trim();
 
-        const resp = await fetch(`${SERVER_URL}/api/asset/${encodeURIComponent(asset.ticker)}`, {
+        const resp = await authFetch(`${SERVER_URL}/api/asset/${encodeURIComponent(asset.ticker)}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
@@ -723,7 +755,7 @@ async function saveCellEdit(cell, asset, field, newValue) {
         const body = {};
         body[field] = numValue;
 
-        const resp = await fetch(`${SERVER_URL}/api/portfolio/${currentGid}/${asset.ticker}`, {
+        const resp = await authFetch(`${SERVER_URL}/api/portfolio/${currentGid}/${asset.ticker}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
