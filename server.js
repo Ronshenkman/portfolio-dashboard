@@ -70,8 +70,14 @@ async function readData() {
             if (doc) {
                 const { _id, ...cleanData } = doc;
                 cachedData = cleanData;
-                // back up locally
-                fs.writeFileSync(DATA_FILE, JSON.stringify(cachedData, null, 2), 'utf8');
+                // back up locally (silently ignore EROFS in serverless environments)
+                try {
+                    fs.writeFileSync(DATA_FILE, JSON.stringify(cachedData, null, 2), 'utf8');
+                } catch (fsErr) {
+                    if (fsErr.code !== 'EROFS') {
+                        console.warn("Could not save local backup:", fsErr.message);
+                    }
+                }
                 return JSON.parse(JSON.stringify(cachedData));
             }
         } catch (err) {
@@ -104,7 +110,15 @@ async function readData() {
 async function writeData(data) {
     cachedData = JSON.parse(JSON.stringify(data));
     const jsonStr = JSON.stringify(data, null, 2);
-    fs.writeFileSync(DATA_FILE, jsonStr, 'utf8');
+    
+    // Save locally (silently ignore EROFS in serverless environments)
+    try {
+        fs.writeFileSync(DATA_FILE, jsonStr, 'utf8');
+    } catch (fsErr) {
+        if (fsErr.code !== 'EROFS') {
+            console.warn("Could not save local backup:", fsErr.message);
+        }
+    }
 
     const col = await getCollection();
     if (col) {
