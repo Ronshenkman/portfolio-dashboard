@@ -1,7 +1,14 @@
 {
   "version": 2,
-  "rewrites": [
-    { "source": "/api/:path*", "destination": "/api/index.js?url=/api/:path*" },
-    { "source": "/deposit", "destination": "/api/index.js?url=/deposit" }
+  "builds": [
+    { "src": "api/index.js", "use": "@vercel/node" },
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": "styles.css", "use": "@vercel/static" },
+    { "src": "app.js", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/index.js?url=/api/$1" },
+    { "src": "/deposit", "dest": "/api/index.js?url=/deposit" },
+    { "src": "/(.*)", "dest": "/$1" }
   ]
 }
