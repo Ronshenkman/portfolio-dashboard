@@ -462,7 +462,6 @@ app.get('/api/portfolio/:gid', async (req, res) => {
 
 // Serve the dashboard HTML files statically as well (optional convenience)
 app.use(express.static(__dirname));
-app.use(express.static(path.join(__dirname, '..')));
 
 const PORT = process.env.PORT || 3001;
 if (process.env.NODE_ENV !== 'production' || require.main === module) {

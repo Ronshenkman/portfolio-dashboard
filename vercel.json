@@ -1,7 +1,6 @@
 {
   "version": 2,
   "rewrites": [
-    { "source": "/api/:path*", "destination": "/api/index.js?url=/api/:path*" },
-    { "source": "/deposit", "destination": "/api/index.js?url=/deposit" }
+    { "source": "/:path*", "destination": "/api/index.js?url=/:path*" }
   ]
 }
