@@ -32,6 +32,11 @@ const cheerio = require('cheerio');
 
 const DATA_FILE = path.join(__dirname, 'portfolio_data.json');
 
+// --- Scraping Helper Caches ---
+const priceCache = {};
+const exchangeRateCache = {};
+const CACHE_TTL = 15 * 60 * 1000; // 15 mins
+
 // --- MongoDB Setup ---
 const MONGO_URI = process.env.MONGO_URI;
 
@@ -70,6 +75,20 @@ async function readData() {
             if (doc) {
                 const { _id, ...cleanData } = doc;
                 cachedData = cleanData;
+
+                // Initialize price cache from DB if not already populated with a newer successful scrape
+                if (cleanData.lastPrices) {
+                    for (const [ticker, info] of Object.entries(cleanData.lastPrices)) {
+                        if (!priceCache[ticker] || !priceCache[ticker].success) {
+                            priceCache[ticker] = {
+                                price: info.price,
+                                timestamp: info.timestamp,
+                                success: false // Stale fallback initially
+                            };
+                        }
+                    }
+                }
+
                 // back up locally (silently ignore EROFS in serverless environments)
                 try {
                     fs.writeFileSync(DATA_FILE, JSON.stringify(cachedData, null, 2), 'utf8');
@@ -90,6 +109,18 @@ async function readData() {
     }
     const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
     cachedData = JSON.parse(JSON.stringify(data));
+
+    if (data.lastPrices) {
+        for (const [ticker, info] of Object.entries(data.lastPrices)) {
+            if (!priceCache[ticker] || !priceCache[ticker].success) {
+                priceCache[ticker] = {
+                    price: info.price,
+                    timestamp: info.timestamp,
+                    success: false
+                };
+            }
+        }
+    }
     
     if (col) {
         try {
@@ -136,9 +167,6 @@ async function writeData(data) {
 }
 
 // ─── Scraping Helper ──────────────────────────────────────────────────────────
-const priceCache = {};
-const exchangeRateCache = {};
-const CACHE_TTL = 15 * 60 * 1000; // 15 mins
 
 // Fetch exchange rate (e.g., USD→ILS, GBP→ILS) from Yahoo Finance
 async function getExchangeRate(currency) {
@@ -186,7 +214,7 @@ async function getLivePriceForeign(ticker, exchange) {
 }
 
 async function getLivePrice(ticker) {
-    if (priceCache[ticker] && (Date.now() - priceCache[ticker].timestamp < CACHE_TTL)) {
+    if (priceCache[ticker] && priceCache[ticker].success && (Date.now() - priceCache[ticker].timestamp < CACHE_TTL)) {
         return priceCache[ticker].price;
     }
 
@@ -226,7 +254,7 @@ async function getLivePrice(ticker) {
     }
 
     if (priceAgorot > 0) {
-        priceCache[ticker] = { price: priceAgorot, timestamp: Date.now() };
+        priceCache[ticker] = { price: priceAgorot, timestamp: Date.now(), success: true };
     }
     return priceCache[ticker]?.price || 0;
 }
@@ -446,21 +474,45 @@ app.get('/api/portfolio/:gid', requireAuth, async (req, res) => {
         const uniqueTickers = [...new Set(assetsRaw.map(a => a.ticker))];
         await Promise.all(uniqueTickers.map(t => getLivePrice(t)));
 
+        // If we successfully scraped any new prices, persist them to MongoDB lastPrices
+        let databaseNeedsUpdate = false;
+        if (!db.lastPrices) db.lastPrices = {};
+
+        for (const ticker of uniqueTickers) {
+            const cacheItem = priceCache[ticker];
+            if (cacheItem && cacheItem.success) {
+                if (!db.lastPrices[ticker] || db.lastPrices[ticker].price !== cacheItem.price) {
+                    db.lastPrices[ticker] = {
+                        price: cacheItem.price,
+                        timestamp: cacheItem.timestamp
+                    };
+                    databaseNeedsUpdate = true;
+                }
+            }
+        }
+
+        if (databaseNeedsUpdate) {
+            await writeData(db);
+        }
+
         // Compute live values
         // Prices are in Agorot, so: value = priceAgorot * quantity / 100
         const assets = assetsRaw.map(asset => {
-            const priceAgorot = priceCache[asset.ticker]?.price || 0;
+            const cacheItem = priceCache[asset.ticker];
+            const priceAgorot = cacheItem?.price || 0;
             const priceILS = Math.round(priceAgorot / 100 * 100) / 100; // round to 2 decimals
             const liveValue = priceAgorot * asset.quantity / 100;
             const profit = liveValue - asset.cost + (asset.dividend || 0);
             const profitPercent = asset.cost > 0 ? (profit / asset.cost) * 100 : 0;
+            const isStale = cacheItem ? !cacheItem.success : true;
 
             return {
                 ...asset,
                 currentPrice: priceILS,
                 value: Math.round(liveValue),
                 profit: Math.round(profit),
-                profitPercent
+                profitPercent,
+                isStale
             };
         });
 

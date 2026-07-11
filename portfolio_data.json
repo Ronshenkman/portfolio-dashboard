@@ -26,7 +26,7 @@
           "exchange": "LON",
           "quantity": 6940,
           "cost": 327341,
-          "dividend": 19625
+          "dividend": 28709
         },
         {
           "category": "אג\"ח סיכון - חו\"ל",
@@ -51,6 +51,22 @@
           "ticker": "1185883",
           "quantity": 4132,
           "cost": 4203,
+          "dividend": 0
+        },
+        {
+          "category": "אג\"ח סיכון - ישראל",
+          "name": "שוהם ביזנס אגח ה",
+          "ticker": "1213537",
+          "quantity": 8162,
+          "cost": 8184,
+          "dividend": 0
+        },
+        {
+          "category": "אג\"ח דירוג גבוה - ישראל",
+          "name": "אלטשולר שחם כספית ניהול נזילות",
+          "ticker": "5140918",
+          "quantity": 0,
+          "cost": 0,
           "dividend": 0
         }
       ]
@@ -79,7 +95,7 @@
           "category": "אג\"ח דירוג גבוה - ישראל",
           "name": "אי.בי.אי. מחקה תל בונד שקלי",
           "ticker": "5113071",
-          "quantity": 1,
+          "quantity": 0,
           "cost": 0,
           "dividend": 0
         },
@@ -89,7 +105,7 @@
           "ticker": "1185883",
           "quantity": 12500,
           "cost": 12835,
-          "dividend": 0
+          "dividend": 412
         }
       ]
     },
@@ -100,8 +116,8 @@
           "category": "מניות - חו\"ל",
           "name": "אינבסקו חוץMSCI.WORLD",
           "ticker": "1185164",
-          "quantity": 597,
-          "cost": 257071,
+          "quantity": 595,
+          "cost": 256210,
           "dividend": 0
         },
         {
@@ -153,8 +169,8 @@
           "category": "אג\"ח דירוג גבוה - ישראל",
           "name": "אי.בי.אי. מחקה תל בונד שקלי",
           "ticker": "5113071",
-          "quantity": 1711,
-          "cost": 2906,
+          "quantity": 1156,
+          "cost": 1963,
           "dividend": 0
         },
         {
@@ -183,7 +199,7 @@
           "name": "אינבסקו חוץMSCI.WORLD",
           "ticker": "1185164",
           "quantity": 8,
-          "cost": 3064,
+          "cost": 3066,
           "dividend": 0
         },
         {
@@ -191,15 +207,15 @@
           "name": "אינ.חוץS&P500",
           "ticker": "1183441",
           "quantity": 1100,
-          "cost": 44914,
+          "cost": 44946,
           "dividend": 0
         },
         {
           "category": "אג\"ח דירוג גבוה - חו\"ל",
           "name": "איישרס.חוץGLOBALAGGREGATE",
           "ticker": "1159102",
-          "quantity": 3724,
-          "cost": 74664,
+          "quantity": 3823,
+          "cost": 74714,
           "dividend": 0
         },
         {
@@ -247,7 +263,7 @@
           "name": "ISHARES $ HIGH YIELD CORP BOND UCITS ETF",
           "ticker": "1159078",
           "quantity": 1235,
-          "cost": 30027,
+          "cost": 30051,
           "dividend": 0
         },
         {
@@ -255,11 +271,85 @@
           "name": "ISHARES $ CORP BOND UCITS ETF USD",
           "ticker": "1159185",
           "quantity": 1525,
-          "cost": 32165,
+          "cost": 32191,
           "dividend": 0
         }
       ]
     }
   },
-  "originalDeposit": 2345609
+  "originalDeposit": 2345609,
+  "lastPrices": {
+    "1159078": {
+      "price": 2272.28,
+      "timestamp": 1783797710240
+    },
+    "1159102": {
+      "price": 1765,
+      "timestamp": 1783797709869
+    },
+    "1159177": {
+      "price": 1788.4,
+      "timestamp": 1783797709800
+    },
+    "1159185": {
+      "price": 1905.7,
+      "timestamp": 1783797709748
+    },
+    "1159276": {
+      "price": 43109,
+      "timestamp": 1783797709767
+    },
+    "1183441": {
+      "price": 4535,
+      "timestamp": 1783797709714
+    },
+    "1185164": {
+      "price": 46470,
+      "timestamp": 1783797709828
+    },
+    "1185883": {
+      "price": 101.99,
+      "timestamp": 1783797710452
+    },
+    "1213537": {
+      "price": 100.23,
+      "timestamp": 1783797710467
+    },
+    "5113071": {
+      "price": 182.83,
+      "timestamp": 1783797710681
+    },
+    "5114657": {
+      "price": 357.25,
+      "timestamp": 1783797710524
+    },
+    "5127709": {
+      "price": 124.09,
+      "timestamp": 1783797710490
+    },
+    "5130166": {
+      "price": 4791.49,
+      "timestamp": 1783797710511
+    },
+    "5136916": {
+      "price": 122.7,
+      "timestamp": 1783797710907
+    },
+    "5140918": {
+      "price": 104.11,
+      "timestamp": 1783797711148
+    },
+    "XUHY": {
+      "price": 3870.3514000000005,
+      "timestamp": 1783797709237
+    },
+    "VCPA": {
+      "price": 18406.795820000003,
+      "timestamp": 1783797709170
+    },
+    "CRPA": {
+      "price": 1787.74804,
+      "timestamp": 1783797709233
+    }
+  }
 }

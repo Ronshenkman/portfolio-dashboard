@@ -629,3 +629,10 @@ th.sortable::after {
     color: var(--primary);
     font-weight: 500;
 }
+
+/* Stale Warning Icon */
+.warning-icon {
+    color: #ff9800; /* Amber/orange color */
+    margin-right: 4px;
+    cursor: help;
+}

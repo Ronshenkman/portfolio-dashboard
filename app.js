@@ -485,7 +485,12 @@ function renderTable(data) {
                </td>`
             : '';
 
-        const priceDisplay = asset.currentPrice > 0 ? '₪' + asset.currentPrice.toFixed(2) : 'לא זמין';
+        const staleIcon = asset.isStale
+            ? ` <i class="fa-solid fa-triangle-exclamation warning-icon" title="שגיאה במשיכת מחיר עדכני - מוצג מחיר שמור אחרון"></i>`
+            : '';
+        const priceDisplay = asset.currentPrice > 0
+            ? '₪' + asset.currentPrice.toFixed(2) + staleIcon
+            : 'לא זמין';
 
         tr.innerHTML = `
             <td class="${isAllView ? 'meta-editable-cell' : ''}" data-meta-field="category" data-ticker="${asset.ticker}"><strong>${asset.category}</strong></td>
